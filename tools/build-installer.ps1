@@ -36,17 +36,17 @@ $WebView2Bootstrapper = [IO.Path]::GetFullPath($WebView2Bootstrapper)
 
 # A fixed source list prevents other editions or private working files entering this package.
 $sources = @('.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'NOTICE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md',
-    'host\DesktopHost.cs', 'host\DesklandPreview.ico', 'host\README.md', 'host\app.manifest', 'host\build.ps1', 'host\inspect.ps1',
-    'tools\build-installer.ps1', 'tools\installer.nsi', 'tools\version.json')
-$themeFiles = @('flat.html', 'meadow.html', 'settings.html', 'thumbs-data.js', 'share.js', 'serve.mjs', 'themes.json', 'beach-palms.js', 'meadow-boy.js', 'meadow-cat.js',
+    'host\DesktopHost.cs', 'host\Themes.cs', 'host\PastoralStore.cs', 'host\DesklandPreview.ico', 'host\README.md', 'host\app.manifest', 'host\build.ps1', 'host\inspect.ps1',
+    'tools\test-pastoral.cjs', 'tools\build-installer.ps1', 'tools\installer.nsi', 'tools\version.json')
+$themeFiles = @('pastoral.html', 'pastoral-world.js', 'pastoral-scene.js', 'pastoral-light.js', 'pastoral-settings.js', 'vendor\suncalc.js', 'vendor\suncalc-LICENSE.txt', 'flat.html', 'meadow.html', 'autumn.html', 'meadow-scene.js', 'settings.html', 'thumbs-data.js', 'share.js', 'serve.mjs', 'themes.json', 'beach-palms.js', 'meadow-boy.js', 'meadow-cat.js',
     'i18n\en.json', 'i18n\zh-CN.json', 'thumbs\beach.webp', 'thumbs\meadow.webp',
     'assets\beach-coconut-palm-v2.png', 'assets\beach-coconut-palm-curved.png', 'assets\beach-coconut-palm-airy.png', 'assets\beach-coconut-palm-windswept.png', 'assets\beach-coconut-palm-arch.png',
     'assets\meadow-black-kitten.png', 'assets\meadow-kite-boy-level-face.png', 'assets\meadow-kite-boy-diagonal-run.png')
 $themes = (Get-Content -LiteralPath (Join-Path $root 'prototype\themes.json') -Raw -Encoding UTF8 | ConvertFrom-Json).themes
 $ready = @($themes | Where-Object { $_.status -eq 'ready' })
 $locked = @($themes | Where-Object { $_.locked -eq $true })
-if ($themes.Count -ne 13 -or $ready.Count -ne 2 -or $locked.Count -ne 11 -or (($ready.id | Sort-Object) -join ',' -ne 'beach,meadow')) {
-    throw 'Expected two usable themes and eleven locked preview cards'
+if ($themes.Count -ne 15 -or $ready.Count -ne 4 -or $locked.Count -ne 11 -or (($ready.id | Sort-Object) -join ',' -ne 'autumn,beach,meadow,pastoral')) {
+    throw 'Expected four usable themes and eleven locked preview cards'
 }
 foreach ($theme in $locked) {
     if ($theme.page -or $theme.groups) { throw 'Locked themes must not contain page source or settings' }

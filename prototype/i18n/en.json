@@ -104,9 +104,37 @@
     "comingSoon": "Coming soon:",
     "purchaseTitle": "Get the Wallpaper edition",
     "purchaseTheme": "“{name}” is included in the Wallpaper edition.",
-    "purchaseMessage": "The preview includes Beach and Meadow forever. Get the Wallpaper edition to unlock more themes in the same Deskland app.",
+    "purchaseMessage": "The preview includes Beach, Meadow, Autumn Meadow and Meadow Village forever. Get the Wallpaper edition to unlock more themes in the same Deskland app.",
     "purchaseLater": "Keep exploring",
-    "purchaseWebsite": "Visit website"
+    "purchaseWebsite": "Visit website",
+    "worldLocation": "Location and daylight",
+    "worldLocationSet": "Location: {lat}, {lon} (stored on this PC only)",
+    "worldLocationMissing": "Location is not set. Neutral daylight is shown until a location is available.",
+    "worldLocate": "Use current location",
+    "worldLatitude": "Latitude",
+    "worldLongitude": "Longitude",
+    "worldTimezone": "Time zone",
+    "worldSaveLocation": "Save location",
+    "worldLocating": "Getting your location. Allow location access in the system prompt…",
+    "worldLocationFailed": "Location unavailable. Retry, or enter coordinates and a time zone.",
+    "worldInvalidLocation": "Enter valid coordinates and an IANA time zone, such as Asia/Shanghai.",
+    "worldSummary": "{homes} homes · {cows} cows · {people} villagers",
+    "worldTimeLive": "Live time",
+    "worldTimeFixed": "Fixed time",
+    "worldTimeBand": "Today’s daylight colors and solar events at this location",
+    "worldMarkerDawn": "Dawn",
+    "worldMarkerSunrise": "Sunrise",
+    "worldMarkerNoon": "Solar noon",
+    "worldMarkerSunset": "Sunset",
+    "worldMarkerDusk": "Dusk",
+    "worldPhase_night": "Moonlit blue",
+    "worldPhase_dawn": "Rosy dawn",
+    "worldPhase_sunrise": "Golden sunrise",
+    "worldPhase_morning": "Fresh morning",
+    "worldPhase_noon": "Emerald noon",
+    "worldPhase_afternoon": "Golden afternoon",
+    "worldPhase_sunset": "Coral sunset",
+    "worldPhase_blue": "Blue hour"
   },
   "host": {
     "traySettings": "Settings…",
@@ -545,6 +573,79 @@
           "label": "Sailing ships",
           "hint": "Hand-drawn galleons, schooners and cutters gently bobbing between the islands",
           "unit": ""
+        }
+      }
+    },
+    "autumn": {
+      "name": "Autumn Meadow",
+      "desc": "Wheat-gold grass and warm white clouds, with a kite drifting over autumn shadows",
+      "groups": [
+        "Around icons",
+        "Clouds",
+        "Characters"
+      ],
+      "params": {
+        "sigma": {
+          "label": "Cloud size",
+          "hint": "How far the clouds around your icons spread out"
+        },
+        "cover": {
+          "label": "Clouds over the meadow",
+          "hint": "How many clouds drift over the open meadow"
+        },
+        "flow": {
+          "label": "Drift speed",
+          "hint": "How fast the clouds drift and their puffs change"
+        },
+        "showBoy": {
+          "label": "Show boy",
+          "hint": "Show or hide the boy together with his kite",
+          "options": [
+            "Hide",
+            "Show"
+          ]
+        },
+        "showCat": {
+          "label": "Show kitten",
+          "hint": "The little black kitten resting on the grass",
+          "options": [
+            "Hide",
+            "Show"
+          ]
+        }
+      }
+    },
+    "pastoral": {
+      "name": "Meadow Village",
+      "desc": "A living village with local sunrise and sunset, independent cows, families and torchlit evenings",
+      "groups": [
+        "World time",
+        "Clouds and grass"
+      ],
+      "params": {
+        "sigma": {
+          "label": "Clouds around icons",
+          "hint": "Keep your desktop icons clear",
+          "unit": "px"
+        },
+        "cover": {
+          "label": "Drifting clouds",
+          "hint": "Cloud shadows offer cool resting places for the herd"
+        },
+        "flow": {
+          "label": "Wind speed"
+        },
+        "realTime": {
+          "label": "Follow real time",
+          "hint": "Use the real time at your location; turn off to choose a fixed time below",
+          "options": [
+            "Off",
+            "On"
+          ]
+        },
+        "fixedTime": {
+          "label": "Fixed time",
+          "hint": "Hold daylight and the daily routine at this time; cows and villagers keep moving"
         }
       }
     }

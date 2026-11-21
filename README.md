@@ -4,9 +4,11 @@
 
 Deskland turns the space around your icons into a living landscape. Move, add or remove an icon and the beach, meadow, clouds and shadows quietly reshape around it — in real time, without AI, an account or an API key.
 
-This is the **free, open-source Preview**, not a time-limited trial. It includes the complete **Beach** and **Meadow** themes, the Windows host, settings and sharing tools.
+This is the **free, open-source Preview**, not a time-limited trial. It includes the complete **Beach**, **Meadow**, **Autumn Meadow** and **Meadow Village** themes, the Windows host, settings and sharing tools.
 
 **English** · [简体中文](#中文说明) · [Official website](https://deskland.app) · [Features](#features) · [Build from source](#build-from-source)
+
+![Meadow Village — included in Deskland Preview](docs/images/pastoral-day.webp)
 
 ![Meadow — included in Deskland Preview](docs/images/meadow.webp)
 
@@ -14,7 +16,11 @@ This is the **free, open-source Preview**, not a time-limited trial. It includes
 
 ![Maldives — locked-theme preview](docs/images/maldives.webp)
 
-Meadow and Beach are included in Preview. Maldives is shown as a locked-theme preview.
+Meadow, Beach and Autumn Meadow are included in Preview. Maldives is shown as a locked-theme preview.
+
+Autumn Meadow adds wheat-gold grass, warm clouds and autumn shadows, with independent saved settings.
+
+Meadow Village adds independent cows and families, safe house placement, children’s games, local sunrise/sunset and torchlit nights. Eight daylight palettes distinguish rosy dawn, emerald noon, coral sunset, blue hour and silver-blue moonlight, with warm windows and fireflies. On first use it requests your location; coordinates and world saves stay on this PC. If location is unavailable, enter coordinates and an IANA time zone in Settings.
 
 ## Included themes
 
@@ -28,7 +34,7 @@ The theme browser also shows 11 locked themes as a preview of the full Wallpaper
 ## Features
 
 - **Adaptive scenery:** uses the real positions of desktop icons and transitions smoothly when they move.
-- **Two complete themes:** every setting for Beach and Meadow is included and saved between sessions.
+- **Four complete themes:** every setting for Beach, Meadow, Autumn Meadow and Meadow Village is included and saved between sessions.
 - **Made for the desktop:** tray controls, startup on sign-in and automatic pause when a window is maximized or full-screen.
 - **Private sharing:** image and animation exports use sample icons and color blocks, never a screenshot of your desktop or real file names.
 - **Independent installation:** Preview uses its own install directory, settings, startup entry and instance identity, so it can coexist with other Deskland builds.
@@ -92,6 +98,7 @@ The installer targets the current user's `Programs\Deskland Preview` directory a
 | `host/` | Windows host, build scripts and application manifest |
 | `prototype/flat.html` | Beach theme |
 | `prototype/meadow.html` | Meadow theme |
+| `prototype/pastoral.html` | Meadow Village theme |
 | `prototype/settings.html` | Settings interface |
 | `prototype/themes.json` | Full free-theme definitions and locked-theme display metadata |
 | `prototype/share.js` | Privacy-preserving image and animation sharing |
@@ -122,9 +129,17 @@ Issues and suggestions are welcome through GitHub Issues. This is an independent
 
 Deskland 是一款 Windows 自适应动态壁纸。移动、添加或删除桌面图标时，海岸线、草地、云朵和阴影会实时围绕图标调整。全部在本地实时演算，不使用 AI，无需账号或 API Key。
 
-本仓库是**免费的开源体验版，不是限时试用版**，包含完整的沙滩和草地主题、Windows 宿主、设置界面与分享工具。
+本仓库是**免费的开源体验版，不是限时试用版**，包含完整的沙滩、草地、秋日草地和草原人家主题、Windows 宿主、设置界面与分享工具。
 
 [官方网站](https://deskland.app) · [从源码运行](#build-from-source) · [许可](#credits-and-license)
+
+秋日草地提供麦金色草地、暖白云团和秋日云影，参数独立保存。
+
+草原人家包含独立活动的牛群、家庭与儿童游戏，房屋避让图标，按真实地点计算晨昏并在夜间点亮火炬。首次使用会请求定位；地点与世界存档仅保存在本机。定位失败时可在设置中填写经纬度和 IANA 时区。最大化或全屏时暂停，恢复后按当前时间调整作息。
+
+草原人家的昼夜拥有独立调色：粉紫黎明、翠绿正午、红霞夕照、蓝调与青蓝月夜，夜间保留可见细节，并有窗灯、火炬和少量萤火虫。时间滑杆显示当日晨昏节点，可固定时刻或跟随现实。
+
+![草原人家时段效果对比](docs/images/pastoral-day-cycle.webp)
 
 ### 包含的主题
 
@@ -138,7 +153,7 @@ Deskland 是一款 Windows 自适应动态壁纸。移动、添加或删除桌�
 ### 功能
 
 - **图标自适应：**读取真实桌面图标的位置，在移动、添加或删除时平滑调整场景。
-- **两个完整主题：**沙滩和草地的全部参数均可调整并自动保存。
+- **四个完整主题：**沙滩、草地、秋日草地和草原人家的全部参数均可调整并自动保存。
 - **适合常驻桌面：**托盘控制、开机自动启动，前台窗口最大化或全屏时自动暂停。
 - **隐私分享：**图片和动画使用示例图标与名字色块，不截取桌面窗口或真实文件名。
 - **独立安装：**安装目录、用户数据、启动项和运行实例标识均独立，可与其他 Deskland 版本共存。
@@ -200,6 +215,7 @@ powershell -ExecutionPolicy Bypass -File tools\build-installer.ps1
 | `host/` | Windows 宿主、构建脚本与清单 |
 | `prototype/flat.html` | 沙滩主题 |
 | `prototype/meadow.html` | 草地主题 |
+| `prototype/pastoral.html` | 草原人家主题 |
 | `prototype/settings.html` | 设置界面 |
 | `prototype/themes.json` | 免费主题完整定义及锁定主题展示信息 |
 | `prototype/share.js` | 隐私保护的图片和动画分享 |

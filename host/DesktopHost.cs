@@ -518,6 +518,9 @@ class HostContext : ApplicationContext
                 Log.Write("切换主题：" + id);
                 break;
             }
+            case "worldRequest":
+                if (form != null && form.LastWorld != null) settingsWin.Post("{\"t\":\"world\",\"v\":" + form.LastWorld + "}");
+                break;
             case "autostartWarnSeen":
                 autoStartSw = null;
                 break;
@@ -779,6 +782,7 @@ class HostContext : ApplicationContext
         }
         form = new WallpaperForm(pageDir, page, manualPause);
         form.SettingsJson = SettingsMessage;
+        form.WorldChanged += delegate(string raw) { if (settingsWin != null) settingsWin.Post("{\"t\":\"world\",\"v\":" + raw + "}"); };
         form.IconsChanged += delegate(string json) { if (settingsWin != null) settingsWin.Post(json); };
         form.RecordProgress += delegate(string p) { if (settingsWin != null) settingsWin.Post("{\"t\":\"recProgress\",\"p\":" + p + "}"); };
         form.HandleDestroyed += OnFormGone;
@@ -1002,6 +1006,8 @@ class WallpaperForm : Form
     string page;                                        // 当前主题的页面（themes.json 里的 page）
     public Func<string> SettingsJson;                   // 页面就绪时先发给它的设置消息
     public event Action<string> IconsChanged;           // 图标变化时转给设置窗口的预览
+    public string LastWorld { get; private set; }
+    public event Action<string> WorldChanged;
     public string LastIcons { get { return lastIcons; } }
     protected override bool ShowWithoutActivation { get { return true; } }
 
@@ -1158,6 +1164,16 @@ class WallpaperForm : Form
             {
                 string msg = null;
                 try { msg = a.TryGetWebMessageAsString(); } catch { }
+                if (page == "pastoral.html" && a.Source.StartsWith("https://app.local/pastoral.html", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (msg == "world-load") { string raw = PastoralStore.Load(); if (raw != null) { LastWorld = raw; Post("{\"t\":\"world\",\"v\":" + raw + "}"); } return; }
+                    if (msg != null && (msg.StartsWith("world-state|") || msg.StartsWith("world-save|")))
+                    {
+                        string raw = msg.Substring(msg.IndexOf('|') + 1);
+                        if (PastoralStore.Valid(raw)) { LastWorld = raw; if (msg.StartsWith("world-save|")) PastoralStore.Save(raw); if (WorldChanged != null) WorldChanged(raw); }
+                        return;
+                    }
+                }
                 if (msg != null && msg.StartsWith("snapshot|")) { OnSnapshot(msg); return; }
                 if (msg != null && msg.StartsWith("recprogress|")) { if (RecordProgress != null) RecordProgress(msg.Substring(12)); return; }
                 if (msg != null && msg.StartsWith("record|")) { OnRecord(msg); return; }

@@ -15,3 +15,9 @@ The host uses the Microsoft Edge WebView2 SDK and Runtime. SDK binaries are down
 ## NSIS
 
 Windows 安装包使用 NSIS 3.13 制作。便携编译器仅在构建时下载，不作为项目源码提交。NSIS 及其压缩模块适用各自许可，详见 https://nsis.sourceforge.io/License 。安装包附带项目对应源码 ZIP。
+
+## SunCalc 1.9.0
+
+Sun position and sunrise/sunset calculations: https://github.com/mourner/suncalc/tree/v1.9.0
+
+BSD-2-Clause; copyright 2014 Vladimir Agafonkin. Full license: `prototype/vendor/suncalc-LICENSE.txt`. Bundled locally; no online service is used for solar calculations.

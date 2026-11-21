@@ -379,6 +379,10 @@
 </footer>
 
 <script src="thumbs-data.js"></script>
+<script src="vendor/suncalc.js"></script>
+<script src="pastoral-world.js"></script>
+<script src="pastoral-light.js"></script>
+<script src="pastoral-settings.js"></script>
 <script>
 'use strict';
 const host = window.chrome && window.chrome.webview;
@@ -482,6 +486,7 @@ function defaultsOf(theme) {
 function valuesOf(theme) { return Object.assign(defaultsOf(theme), state.params[theme.id] || {}); }
 function fmt(p, v) {
   if (p.options) return p.options[v] || '';
+  if (p.format === 'clock') return String(Math.floor(v/60)).padStart(2,'0') + ':' + String(v%60).padStart(2,'0');
   if (p.format === 'times') return '×' + v.toFixed(2);
   if (p.format === 'percent') return Math.round(v * 100) + '%';
   const s = Number.isInteger(p.step) ? String(Math.round(v)) : v.toFixed(2);
@@ -558,8 +563,9 @@ function renderControls() {
           </div>`}
         </div>`).join('')}
       ${g.soon ? `<div class="soon">${t('comingSoon')}${g.soon.map(s => `<span class="chip">${s}</span>`).join('')}</div>` : ''}
-    </div>`).join('');
+    </div>`).join('') + pastoralSettingsMarkup();
   $('controls').querySelectorAll('input[type=range]').forEach(fill);
+  renderPastoralSettings();
 }
 function fill(inp) { inp.style.setProperty('--p', ((inp.value - inp.min) / (inp.max - inp.min) * 100) + '%'); }
 const paramOf = key => themeById(state.theme).groups.flatMap(g => g.params).find(x => x.key === key);
@@ -584,6 +590,7 @@ function setParam(key, v) {
   }
   (state.params[state.theme] = state.params[state.theme] || {})[key] = v;
   pending[key] = v;
+  if(state.theme==='pastoral'&&(key==='realTime'||key==='fixedTime'))syncPastoralClock();
   // 不用 requestAnimationFrame：窗口在后台或被遮住时它会暂停，消息就积压了
   if (!scheduled) { scheduled = true; setTimeout(flush, 30); }
 }
@@ -677,13 +684,14 @@ addEventListener('resize', layoutPreview);
 addEventListener('message', e => {
   if (e.source !== frame.contentWindow) return;
   const m = JSON.parse(e.data);
-  if (m.t === 'ready') {                 // 预览页面加载好了：先给设置，再给图标
+  if (m.t === 'ready') {
+    if(state.theme==='pastoral'){send({t:'worldRequest'});if(state.world)toPreview({t:'world',v:state.world});}                 // 预览页面加载好了：先给设置，再给图标
     toPreview({ t: 'settings', v: valuesOf(themeById(state.theme)) });
     if (state.icons) toPreview(state.icons);
   }
 });
 function updateFoot() {
-  $('previewFoot').textContent = t('livePreview');
+  $('previewFoot').textContent = state.theme==='pastoral'&&state.world?t('worldSummary',{homes:state.world.homes.length,cows:state.world.agents.filter(a=>a.kind==='cow').length,people:state.world.agents.filter(a=>a.kind!=='cow').length}):t('livePreview');
 }
 
 function renderHead() {
@@ -783,6 +791,7 @@ $('shareReveal').addEventListener('click', () => send({ t: 'revealShare' }));
 
 /* ---------- 和宿主通信 ---------- */
 function onHost(m) {
+  if(m.t==='world'){state.world=m.v;if(state.theme==='pastoral'){toPreview(m);updateFoot();}return;}
   if (m.t === 'init') {
     state.langSetting = m.lang || 'auto';
     state.langSys = m.langSys || 'zh-CN';
@@ -844,7 +853,7 @@ fetch('themes.json').then(r => r.json()).then(reg => {
   if (host) {
     host.addEventListener('message', e => onHost(JSON.parse(e.data)));
     send({ t: 'hello' });
-  } else mockHost();
+  } else {try{const loc=JSON.parse(localStorage.getItem('deskland-pastoral-location'));if(loc)state.params.pastoral={location:loc};}catch{}mockHost();}
 });
 </script>
 </body>
