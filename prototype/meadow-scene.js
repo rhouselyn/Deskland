@@ -18,13 +18,24 @@ const P = {
   debug: false, snap: true, cap30: true,
   showBoy: 1, showCat: 1, adaptive: 1,
 };
+if (PASTORAL) Object.assign(P, PastoralLight.defaults);
 const DEFAULTS = Object.assign({}, P);
 const DISPLAY_KEYS = ['showBoy', 'showCat', 'adaptive'];
+if (PASTORAL) DISPLAY_KEYS.push('iconLighting','clickEffects');
 const SLIDERS = [
   { key: 'sigma',  label: '云团大小', min: 40,  max: 200, step: 1,    fmt: v => v + ' px', act: 'field' },
   { key: 'cover',  label: '草地上的云', min: 0,   max: 1,   step: 0.01, fmt: v => Math.round(v * 100) + '%' },
   { key: 'flow',   label: '流动速度', min: 0,   max: 3,   step: 0.05, fmt: v => '×' + v.toFixed(2) },
 ];
+// Keep the saved key so old Off/On values remain the two ends of this slider.
+if (PASTORAL) SLIDERS.push(
+  {key:'showIconClouds',label:'图标云层不透明度',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%'},
+  {key:'meteorWidth',label:'流星光晕宽度',min:.25,max:2,step:.05,fmt:v=>Math.round(v*100)+'%'},
+  {key:'meteorBrightness',label:'流星光晕亮度',min:0,max:6,step:.05,fmt:v=>Math.round(v*100)+'%'},
+  {key:'auroraWidth',label:'极光光带宽度',min:.25,max:2,step:.05,fmt:v=>Math.round(v*100)+'%'},
+  {key:'auroraBrightness',label:'极光亮度',min:0,max:2,step:.05,fmt:v=>Math.round(v*100)+'%'}
+);
+
 
 /* ======================================================================
    图标与布局数据
@@ -93,7 +104,7 @@ function mineCells() {
 /* ======================================================================
    CPU 噪声 + 可平铺噪声纹理
    ====================================================================== */
-let seed = (Math.random() * 1e6) | 0;
+let seed = PASTORAL ? PastoralLight.defaults.seed : (Math.random() * 1e6) | 0;
 function hash2(x, y, k = 0) {
   let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(seed + k, 2246822519);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -195,7 +206,7 @@ void main() {
 const FS = `#version 300 es
 ${PASTORAL ? "#define PASTORAL" : ""}
 precision highp float;
-uniform sampler2D uNoise, uFA, uFB;
+uniform sampler2D uNoise, uFA, uFB, uGrassInk;
 uniform vec2 uRes, uGrid;
 uniform float uScale, uSeed, uStep, uMix, uTime, uDebug, uEdge;
 #ifdef MEADOW_ACTOR
@@ -230,8 +241,18 @@ const vec3 CLOUD_BODY = vec3(0.90, 0.93, 0.96), CLOUD_SH = vec3(0.80, 0.85, 0.90
 #ifdef PASTORAL
 uniform vec2 LIGHT, SHADOW_OFF;
 uniform vec3 uWorldAmbient;
-uniform float uWorldNight,uWorldShade;
+uniform float uWorldNight,uWorldShade,uRake,uHighSun;
 uniform sampler2D uWorld, uWorldLight;
+uniform sampler2D uCropMask;
+uniform vec4 uCropRect;
+uniform vec2 uCropTiming;
+uniform bool uHasMeteor;
+uniform float uIconCloudOpacity, uMeteorBrightness;
+uniform sampler2D uMeteorLight;
+uniform vec4 uAurora;
+uniform vec3 uAuroraFold;
+uniform vec2 uAuroraAxis;
+uniform vec3 uAuroraPrimary,uAuroraFringe;
 #else
 const vec2 LIGHT = vec2(-0.6, -0.8);                                          // 太阳在左上方
 const vec2 SHADOW_OFF = vec2(115.0, 156.0);                                    // 云影落在右下方，离云远 → 云飘得高
@@ -250,21 +271,26 @@ float smin(float a, float b, float k) { float h = clamp(0.5 + 0.5 * (b - a) / k,
 
 // 到云的距离（<0 在云里）：图标周围云团的主体 + 自己格子里的圆（和天空主题同一套）
 // front = true 时顺便找出盖住这个点、圆心最靠下（最前面）的那个圆：fc = (圆心 x, y, 半径, 色调)
-float cloudDist(vec2 q, bool front, inout vec4 fc) {
+float cloudDist(vec2 q, bool front, bool iconClouds, inout vec4 fc) {
   float sF = mix(fieldS(uFA, q), fieldS(uFB, q), uMix);
   float d = sF - uEdge + 0.6 * 95.0;                                              // 主体：把圆之间的缝填上
+  if (!iconClouds) d = 1e5;
   ivec2 cell = ivec2(floor(q / uCellG)) + 4;                                      // 格子比屏幕左、上多 4 格（右下方的云影要用到），右、下多 3 格
   if (cell.x < 0 || cell.y < 0 || float(cell.x) >= uCGrid.x || float(cell.y) >= uCGrid.y) return d;
   for (int k = 0; k < CIRC_K; k++) {
     vec4 c = texelFetch(uCirc, ivec2(cell.x * CIRC_K + k, cell.y), 0);
     if (c.z <= 0.0) break;
+#ifdef PASTORAL
+    if (!iconClouds && c.w >= 2.) continue;
+    if (c.w >= 2.) c.w -= 2.;
+#endif
     float di = length(q - c.xy) - c.z;
     d = smin(d, di, 6.0);
     if (front && di < 0.0 && c.y > fc.y) fc = c;
   }
   return d;
 }
-float cloudDist(vec2 q) { vec4 fc = vec4(0.0, -1e9, 0.0, 0.0); return cloudDist(q, false, fc); }
+float cloudDist(vec2 q) { vec4 fc = vec4(0.0, -1e9, 0.0, 0.0); return cloudDist(q, false, true, fc); }
 
 // 到一段线的距离
 float segD(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)); }
@@ -308,17 +334,74 @@ vec4 catColor(vec2 uv) {
 }
 #endif
 
+vec3 paintClouds(vec2 p, vec3 col, bool iconClouds, out float d
+#ifdef PASTORAL
+  , vec2 sunDir, vec3 skyGlow, vec3 meteor, vec4 lamp
+#endif
+) {
+  // ---------- 云：卡通画法（和大海主题一样）——一个个圆合起来，每个圆色调略有不同，
+  //            只有朝光（左上）的外轮廓一道亮白，里面没有亮面；边缘干净 ----------
+  vec4 fc = vec4(0.0, -1e9, 0.0, 0.0);
+  d = cloudDist(p, true, iconClouds, fc);
+  if (d < 1.5) {
+    // 往光那边走一小段就出云了 → 这里是朝光的外沿（离外轮廓超过 21px 的地方不用算）
+    vec3 cc = fc.y > -1e8 ? mix(CLOUD_BODY, CLOUD_SH, fc.w * 0.6) : mix(CLOUD_BODY, CLOUD_SH, 0.45);
+#ifdef PASTORAL
+    float hi=d > -19.0 ? ss(-6.,5.,cloudDist(p+sunDir*14.,false,iconClouds,fc)) : 0.;
+    if(fc.y > -1e8){
+      vec2 lobe=(p-fc.xy)/max(fc.z,1.);
+      float facing=dot(lobe,sunDir);
+      cc=mix(cc,CLOUD_SH,ss(.08,.94,-facing)*.44);
+      cc=mix(cc,CLOUD_HI,ss(.04,.98,facing)*.35);
+      cc=mix(cc,CLOUD_HI,uHighSun*.48*(1.-ss(.32,.96,length(lobe))));
+    }
+#else
+    float hi = d > -21.0 ? ss(-1.0, 1.0, cloudDist(p + LIGHT * 20.0)) : 0.0;
+#endif
+    cc = mix(cc, CLOUD_HI, hi);
+#ifdef PASTORAL
+    float skyPeak=max(skyGlow.r,max(skyGlow.g,skyGlow.b));
+    cc=cc*(1.+.52*skyGlow-.48*skyPeak)+skyGlow*(.38+.20*hi)*(1.-.62*cc);
+    cc+=meteor*(.65+.30*hi+.20*ss(-16.,0.,d));
+#endif
+    col = mix(col, cc, ss(1.0, -1.0, d));
+  }
+  if (uDebug > 0.5) col = mix(col, vec3(0.9, 0.15, 0.15), 1.0 - ss(0.0, 1.5, abs(d)));
+#ifdef PASTORAL
+  col+=lamp.rgb*lamp.a*uWorldNight*.18*ss(-1.0,3.0,d);
+#endif
+  return col;
+}
+
 void main() {
   vec2 p = vec2(gl_FragCoord.x, uRes.y * uScale - gl_FragCoord.y) / uScale;
+#ifdef GRASS_INK_CACHE
+  o=vec4(grassInk(p${PASTORAL ? '*1.55' : ''}),0.,0.,1.);
+  return;
+#endif
 
   // ---------- 草地：黄绿和绿的大块水彩晕染，几片颜色深一点，左上（向阳）稍亮；纸的颗粒 ----------
   float w1 = N(p, 1900.0).b, w2 = N(p + 311.0, 650.0).g;
   vec3 col = mix(G_MID, G_LIGHT, ss(0.3, 0.75, w1 * 0.7 + w2 * 0.3));
+#ifdef PASTORAL
+  // 地形的向光面吃到斜阳，背光处保留草色。镜头固定，光向随太阳移动。
+  vec2 sunDir=LIGHT/max(.001,length(LIGHT));
+  float slope=dot(p/uRes-.5,sunDir)*.65+(w1-.5)*1.3+(w2-.5)*.48;
+  float glancing=ss(-.17,.38,slope)*uRake;
+  col=mix(col,G_DEEP,ss(.39,.78,N(p+977.,1300.).r)*.62);
+  col=mix(col,mix(G_LIGHT,CLOUD_BODY,.44),glancing*.71);
+  col=mix(col,vec3(1.,.985,.77),ss(.50,.78,.65*w1+.35*w2)*.40*uHighSun);
+#else
   col = mix(col, G_DEEP, ss(0.45, 0.85, N(p + 977.0, 1300.0).r) * 0.4);       // 阈值放宽：噪声放大很多倍，卡得太陡会出现台阶状的方块
+#endif
   col *= 1.0 + 0.05 * (0.5 - (p.x + p.y) / (uRes.x + uRes.y));
   col *= 1.0 + (hash2(floor(p * (0.8 * max(uScale, 1.0)))) - 0.5) * 0.035;   // 颗粒按屏幕的实际像素取
   // 画草的墨绿短线
-  col = mix(col, INK, grassInk(p) * 0.75);
+#ifdef PASTORAL
+  col=mix(col,INK,texelFetch(uGrassInk,ivec2(gl_FragCoord.xy),0).r*.53);
+#else
+  col = mix(col, INK, texelFetch(uGrassInk,ivec2(gl_FragCoord.xy),0).r * 0.75);
+#endif
 
 #ifdef MEADOW_ACTOR
   // 人物、风筝和完整投影都先落在草地上，随后由同一层云影和白云覆盖。
@@ -344,37 +427,76 @@ void main() {
 #endif
 
 #ifdef PASTORAL
+  vec3 meteor=uHasMeteor?min(texture(uMeteorLight,p/uRes).rgb,vec3(.18))*uMeteorBrightness:vec3(0.);
+  vec3 skyGlow=vec3(0.);
+  if(uAurora.x>0.){
+    // 按当前光向把两端映到 -1 和 1，宽屏与竖屏上光都能扫过两侧。
+    float along=dot(2.*p-uRes,uAuroraAxis)/dot(uRes,abs(uAuroraAxis));
+    float across=dot(p/uRes-.5,vec2(-uAuroraAxis.y,uAuroraAxis.x));
+    float offset=along-uAurora.y+.26*sin(6.*across+uAurora.w);
+    float wash=1.-ss(0.,uAurora.z,abs(offset));
+    // 窄光独自斜穿宽光，在弯折处舒展；两层重合时仍保留各自的软边。
+    float curl=sin(10.*across+uAuroraFold.y);
+    float foldOffset=along-uAuroraFold.x-.46*across+.23*curl+.08*sin(17.*across-uAuroraFold.y+curl);
+    float foldWidth=uAurora.z*(.49+.14*curl);
+    float fold=1.-ss(0.,foldWidth,abs(foldOffset));
+    vec3 wideLight=uAuroraPrimary*(.022+.978*wash);
+    vec3 foldLight=uAuroraFringe*(uAuroraFold.z*fold);
+    skyGlow=min(vec3(1.),(wideLight+foldLight-wideLight*foldLight)*uAurora.x);
+    float terrainHeight=.78*w1+.22*w2;
+    vec2 downhill=vec2(-dFdx(terrainHeight),dFdy(terrainHeight))*uScale;
+    float exposure=ss(-.012,.012,dot(downhill,uAuroraAxis));
+    col+=skyGlow*(.19+.77*col)*(.74+.44*exposure);
+  }
   vec4 lamp=texture(uWorldLight,p/uRes);
   float fire=clamp(lamp.a*uWorldNight*1.45,0.0,.92);
   vec3 warmGrass=mix(vec3(.35,.45,.14),vec3(.74,.71,.36),ss(.12,.65,dot(col,vec3(.3,.59,.11))));
   col=mix(col,warmGrass,fire);
+  col+=meteor*(.48+.24*w2+.48*dot(col,vec3(.25,.6,.15)));
   vec4 village=texture(uWorld,p/uRes);
+  vec2 cropOffset=p-uCropRect.xy;
+  if(uCropRect.z>0. && all(greaterThanEqual(cropOffset,vec2(0.))) && all(lessThan(cropOffset,uCropRect.zw))){
+    vec2 uv=cropOffset/uCropRect.zw;
+    vec4 soil=texture(uCropMask,uv);
+    if(uv.x<uCropTiming.x && soil.a>0.){
+      // 小路的土色上留一点深浅不一的焦痕，沿怪圈的线条显出来。
+      float scorch=.19+.19*N(p+173.,12.).r+.07*hash2(floor(p*.85));
+      soil.rgb=mix(soil.rgb,vec3(.23,.12,.065),scorch);
+      soil.a*=1.39;
+      // 怪圈在村民脚下，与道路共用后续的环境光、灯火和云影。
+      float groundAlpha=soil.a*(1.-village.a);
+      float alpha=village.a+groundAlpha;
+      if(alpha>0.)village=vec4((village.rgb*village.a+soil.rgb*groundAlpha)/alpha,alpha);
+    }
+  }
   vec3 albedo=mix(vec3(dot(village.rgb,vec3(.3,.59,.11))),village.rgb,1.12);
   vec3 material=mix(albedo*uWorldAmbient,albedo*vec3(1.19,.98,.68),fire);
+  material+=skyGlow*(.025+.67*albedo)*(1.-.83*fire);
+  material+=meteor*(.22+.78*albedo);
   col=mix(col,material,village.a);
 #endif
   // ---------- 云投在草地上的影子（右下方）：一整块深绿 ----------
   float sd = cloudDist(p - SHADOW_OFF);
 #ifdef PASTORAL
-  col = mix(col, col * SHADOW, ss(3.0, -3.0, sd) * .85*uWorldShade*(1.0-fire*.6));
+  vec3 shadeColor=mix(col*SHADOW,SHADOW*(.49+dot(col,vec3(.22,.65,.13))*.48),.57);
+  float penumbra=1.-.62*uHighSun;
+  col = mix(col,shadeColor,ss(5.5*penumbra,-4.0*penumbra,sd)*.91*uWorldShade*(1.0-fire*.6));
 #else
   col = mix(col, col * SHADOW, ss(3.0, -3.0, sd) * 0.85);
 #endif
 
-  // ---------- 云：卡通画法（和大海主题一样）——一个个圆合起来，每个圆色调略有不同，
-  //            只有朝光（左上）的外轮廓一道亮白，里面没有亮面；边缘干净 ----------
-  vec4 fc = vec4(0.0, -1e9, 0.0, 0.0);
-  float d = cloudDist(p, true, fc);
-  if (d < 1.5) {
-    // 往光那边走一小段就出云了 → 这里是朝光的外沿（离外轮廓超过 21px 的地方不用算）
-    float hi = d > -21.0 ? ss(-1.0, 1.0, cloudDist(p + LIGHT * 20.0)) : 0.0;
-    vec3 cc = fc.y > -1e8 ? mix(CLOUD_BODY, CLOUD_SH, fc.w * 0.6) : mix(CLOUD_BODY, CLOUD_SH, 0.45);
-    cc = mix(cc, CLOUD_HI, hi);
-    col = mix(col, cc, ss(1.0, -1.0, d));
-  }
-  if (uDebug > 0.5) col = mix(col, vec3(0.9, 0.15, 0.15), 1.0 - ss(0.0, 1.5, abs(d)));
+  float d;
 #ifdef PASTORAL
-  col+=lamp.rgb*lamp.a*uWorldNight*.18*ss(-1.0,3.0,d);
+  vec3 ground=col;
+  col=paintClouds(p,ground,uIconCloudOpacity>0.,d,sunDir,skyGlow,meteor,lamp);
+  // Composite the two endpoints, including a drifting cloud wherever it overlaps an icon cloud.
+  if(uIconCloudOpacity>0. && uIconCloudOpacity<1. && d<3.){
+    float skyDistance;
+    vec3 drifting=paintClouds(p,ground,false,skyDistance,sunDir,skyGlow,meteor,lamp);
+    col=mix(drifting,col,uIconCloudOpacity);
+  }
+#else
+  col=paintClouds(p,col,true,d);
 #endif
   o = vec4(col, 1.0);
 }`;
@@ -417,6 +539,26 @@ function buildNoiseTex() {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+}
+let grassInkTexture=null,grassInkFramebuffer=null,grassInkProgram=null,grassInkKey='';
+function prepareGrassInk(){
+  const key=[cv.width,cv.height,cv._scale,seed].join('/');
+  if(key===grassInkKey)return;
+  if(!grassInkTexture){
+    grassInkTexture=gl.createTexture();grassInkFramebuffer=gl.createFramebuffer();
+    grassInkProgram=program(FS.replace('#version 300 es','#version 300 es\n#define GRASS_INK_CACHE'));
+  }
+  gl.activeTexture(gl.TEXTURE12);gl.bindTexture(gl.TEXTURE_2D,grassInkTexture);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,cv.width,cv.height,0,gl.RED,gl.UNSIGNED_BYTE,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,grassInkFramebuffer);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,grassInkTexture,0);
+  const {p,U}=grassInkProgram;gl.useProgram(p);gl.viewport(0,0,cv.width,cv.height);
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,noiseTex);gl.uniform1i(U.uNoise,0);
+  gl.uniform2f(U.uRes,cv.width/cv._scale,cv.height/cv._scale);gl.uniform1f(U.uScale,cv._scale);gl.uniform1f(U.uSeed,(seed%997)*.37);
+  gl.drawArrays(gl.TRIANGLES,0,3);gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  grassInkKey=key;
 }
 const f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
 function toHalf(v) {
@@ -484,8 +626,8 @@ let circStats = null, circTex = null, circBuf = null, cgW = 0, cgH = 0;
 const rnd1 = (x, y, k) => hash2(x, y, k);                  // 固定的随机数（和换种子一起变）
 const skyClouds = [];
 let flowT = 0;
-function makeSkyCloud(x) {
-  const rnd = Math.random, R = PASTORAL ? 65 : 95 * 1.2;                 // 轮廓大一些（云厚一些，才放得下大圆）；圆的大小还是按 95 算
+function makeSkyCloud(x, seed = PASTORAL ? Math.floor(Math.random()*0x100000000) : null) {
+  const rnd = seed===null ? Math.random : mulberry32(seed), R = PASTORAL ? 65 : 95 * 1.2;
   // 1) 大致的轮廓：底下一排大圆（中间大、两边小），上面再堆几个 → 底宽上窄的一团
   const n = 3 + Math.floor(rnd() * 3), w = R * (1.0 + n * 0.5);
   const body = [];
@@ -531,7 +673,7 @@ function makeSkyCloud(x) {
   layer(34 * 0.85, [0.5, 0.9], -1.0 * Rm, ci => sstep(-0.05 * Rm, -0.35 * Rm, ci) * (1 - sstep(-0.7 * Rm, -1.0 * Rm, ci)), true);
   layer(24 * 0.85, [0.45, 0.8], -0.6 * Rm, ci => sstep(0, -0.2 * Rm, ci) * (1 - sstep(-0.4 * Rm, -0.6 * Rm, ci)), true);
   const y = 80 + rnd() * (H - TASKBAR - 120);
-  return { x, y, circles, v: 0.7 + rnd() * 0.6, grow: 0, hw: Math.max(-x0, x1) + 20 };
+  return { x, y, seed, circles, v: 0.7 + rnd() * 0.6, grow: 0, hw: Math.max(-x0, x1) + 20 };
 }
 function stepSkyClouds(dt) {
   flowT += dt * P.flow;                                     // 云自己的时钟：流动速度越快，鼓包呼吸得也越快
@@ -630,9 +772,14 @@ function uploadCircles(t) {
   // 天上的小云
   for (const c of skyClouds) {
     const g = c.grow * c.grow * (3 - 2 * c.grow);
+    c.hitCircles=[];
     c.circles.forEach(([dx, dy, r, ph], i) => {
       const rb = r * g * (1 + 0.04 * Math.sin(flowT * (0.09 + 0.035 * ph) + ph * 6.283 + i));
-      if (rb > 0.5) list.push(c.x + dx + wobX(dx, dy, r, ph), c.y + dy + wobY(dx, dy, r, ph), rb, ph);   // 天上的云：按云自己的坐标算，整朵飘的时候也在轻轻翻动
+      if (rb > 0.5) {
+        const x=c.x+dx+wobX(dx,dy,r,ph),y=c.y+dy+wobY(dx,dy,r,ph);
+        list.push(x,y,rb,ph);
+        c.hitCircles.push({x,y,r:rb});
+      }
     });
   }
   // 分到格子里（圆盖到的每个格子都放一份；一个格子放不下就留大的）
@@ -651,7 +798,7 @@ function uploadCircles(t) {
       if ((nx - x) * (nx - x) + (ny - y) * (ny - y) > r * r) continue;   // 圆碰不到这个格子
       if (cnt[ci] >= CIRC_K) continue;
       const o = ((gy * gw + gx) * CIRC_K + cnt[ci]++) * 4;
-      circBuf[o] = x; circBuf[o + 1] = y; circBuf[o + 2] = list[i + 2]; circBuf[o + 3] = list[i + 3];
+      circBuf[o] = x; circBuf[o + 1] = y; circBuf[o + 2] = list[i + 2]; circBuf[o + 3] = list[i + 3] + (PASTORAL && i < massList.length ? 2 : 0);
     }
   }
   circStats = { circles: list.length / 4, maxPerCell: Math.max(...cnt) };
@@ -787,8 +934,39 @@ const T0 = performance.now();
 let lastT = 0, fpsEMA = 0, frameN = 0, frameMs = 0;
 const px = new Uint8Array(4);
 let paused = false;                              // 宿主通知：前台窗口最大化 / 全屏 → 暂停
+let onBattery = false, recordingActive = false, animationFrame = 0, frozenAt = 0;
+let meteorTrialUntil = 0, lastTrialFrame = -Infinity;
+function powerSaving() { return PASTORAL && onBattery && pastoralSettings.batterySaver !== 0 && !recordingActive; }
+function syncPowerSaving() {
+  if (!PASTORAL) return;
+  if (powerSaving()) {
+    cancelAnimationFrame(animationFrame); animationFrame = 0; lastT = 0;
+    if (!frozenAt) frozenAt = performance.now();
+    refresh(); curMix = 1;
+    preparePastoral(frozenAt, 0); draw(frozenAt);
+    if (meteorTrialUntil) animationFrame = requestAnimationFrame(frame);
+  } else {
+    frozenAt = 0;
+    if (!animationFrame) animationFrame = requestAnimationFrame(frame);
+  }
+}
+function setRecordingActive(v) { recordingActive = v; syncPowerSaving(); }
 function frame(now) {
-  requestAnimationFrame(frame);
+  animationFrame = 0;
+  const saving = powerSaving();
+  if (PASTORAL && meteorTrialUntil && (saving || paused)) {
+    // Draw only the trial over the frozen scene. One final draw removes its light.
+    if (now >= meteorTrialUntil) {
+      meteorTrialUntil = 0;
+      draw(now);
+    } else {
+      animationFrame = requestAnimationFrame(frame);
+      if (now - lastTrialFrame >= 31) { lastTrialFrame = now; draw(now); }
+      return;
+    }
+  }
+  if (saving) return;
+  animationFrame = requestAnimationFrame(frame);
   if (paused) { lastT = 0; return; }
   if (P.cap30 && now - lastT < 31) return;
   const dt = lastT ? Math.min((now - lastT) / 1000, 0.1) : 0.03;
@@ -799,11 +977,12 @@ function frame(now) {
   stepSkyClouds(dt);
   if(PASTORAL) preparePastoral(now,dt);
   draw(now);
-  if (++frameN % 10 === 0) updateStats();
+  if (++frameN % 10 === 0 && !WALL && !PREVIEW) updateStats();
 }
 function draw(now) {
+  if (powerSaving() && frozenAt) now = frozenAt;
   if(PASTORAL && pastoralScene) pastoralScene.draw(now);
-  const measure = frameN % 20 === 0, t0 = performance.now();
+  const measure = !WALL && !PREVIEW && frameN % 20 === 0, t0 = performance.now();
   // 隐藏男孩时只保留路线状态，小猫仍能独立显示并避开男孩再次出现的路线。
   const boy=typeof prepareMeadowBoy==='function'?prepareMeadowBoy(now,P.showBoy===1):null;
   const actor=P.showBoy===1?boy:null;
@@ -812,6 +991,7 @@ function draw(now) {
   if(actor&&!actorPR)actorPR=program(FS.replace('#version 300 es','#version 300 es\n#define MEADOW_ACTOR'));
   // 两次绘制共享本帧云数据，不额外重算、上传云团。
   uploadCircles((now - T0) / 1000);
+  prepareGrassInk();
   const render=(renderer,withCat)=>{
     const { p, U } = renderer;
     gl.useProgram(p);
@@ -820,6 +1000,7 @@ function draw(now) {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, ftex[fromI]);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, ftex[toI]);
     gl.uniform1i(U.uNoise, 0); gl.uniform1i(U.uFA, 1); gl.uniform1i(U.uFB, 2);
+    gl.activeTexture(gl.TEXTURE12);gl.bindTexture(gl.TEXTURE_2D,grassInkTexture);gl.uniform1i(U.uGrassInk,12);
     gl.uniform2f(U.uRes, cv.width / cv._scale, cv.height / cv._scale);   // 和画布的实际像素对齐（innerWidth、innerHeight 是取整过的）
     gl.uniform2f(U.uGrid, Gw, Gh);
     gl.uniform1f(U.uScale, cv._scale);
@@ -844,9 +1025,23 @@ function draw(now) {
     if(PASTORAL && pastoralScene){
       gl.activeTexture(gl.TEXTURE9);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.texture);gl.uniform1i(U.uWorld,9);
       gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.lightTexture);gl.uniform1i(U.uWorldLight,10);
+      gl.activeTexture(gl.TEXTURE13);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.cropTexture);gl.uniform1i(U.uCropMask,13);
+      gl.uniform4fv(U.uCropRect,pastoralScene.cropRect);gl.uniform2fv(U.uCropTiming,pastoralScene.cropTiming);
       const paint=pastoralScene.paint;
+      gl.uniform1f(U.uIconCloudOpacity,P.showIconClouds);
+      gl.uniform1i(U.uMeteorLight,11);
+      gl.uniform1f(U.uMeteorBrightness,P.meteorBrightness);
+      gl.uniform1i(U.uHasMeteor,pastoralScene.drawMeteorLight(cv.width/cv._scale,cv.height/cv._scale)?1:0);
+      const aurora=pastoralScene.aurora();
+      updateIconLight(now,aurora);
+      if(aurora){
+        gl.uniform4f(U.uAurora,aurora.strength,aurora.center,aurora.halfWidth,aurora.bend);gl.uniform2f(U.uAuroraAxis,aurora.dx,aurora.dy);
+        gl.uniform3f(U.uAuroraFold,aurora.foldCenter,aurora.foldBend,aurora.foldGain);
+        gl.uniform3fv(U.uAuroraPrimary,aurora.primary);gl.uniform3fv(U.uAuroraFringe,aurora.fringe);
+      }
+      else gl.uniform4f(U.uAurora,0,0,0,0);
       for(const [uniform,key] of [['G_LIGHT','grassLight'],['G_MID','grassMid'],['G_DEEP','grassDeep'],['INK','ink'],['SHADOW','shadow'],['CLOUD_HI','cloudHi'],['CLOUD_BODY','cloudBody'],['CLOUD_SH','cloudShade'],['uWorldAmbient','ambient']])gl.uniform3fv(U[uniform],paint[key]);
-      gl.uniform1f(U.uWorldNight,paint.night);gl.uniform1f(U.uWorldShade,paint.shade);
+      gl.uniform1f(U.uWorldNight,paint.night);gl.uniform1f(U.uWorldShade,paint.shade);gl.uniform1f(U.uRake,paint.rake);gl.uniform1f(U.uHighSun,paint.highSun);
       gl.uniform2fv(U.LIGHT,pastoralScene.solar.light);gl.uniform2fv(U.SHADOW_OFF,pastoralScene.solar.shadow);
     }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -903,7 +1098,8 @@ document.querySelector('.seg').addEventListener('click', e => {
   applyLayout(b.dataset.v); syncPanel();
 });
 document.querySelectorAll('.toggles input').forEach(inp => inp.addEventListener('change', () => {
-  P[inp.dataset.key] = inp.checked;
+  if (DISPLAY_KEYS.includes(inp.dataset.key)) applySettings({[inp.dataset.key]: Number(inp.checked)});
+  else P[inp.dataset.key] = inp.checked;
 }));
 document.getElementById('collapse').addEventListener('click', () => {
   const p = document.getElementById('panel');
@@ -936,6 +1132,35 @@ desktop.addEventListener('pointerdown', e => {
   select(null);
   if (isWater(e.clientX, e.clientY)) addRipple(e.clientX, e.clientY);
 });
+let pastoralPreviewHosted=PREVIEW&&!!window.chrome?.webview;
+if(PASTORAL&&!WALL){
+  let press=null;
+  const surface=PREVIEW?cv:desktop,box=document.getElementById('selectionBox');
+  const cancel=()=>{press=null;box.hidden=true;};
+  surface.addEventListener('pointerdown',e=>{
+    if(!e.isPrimary||e.button!==0||icons.some(ic=>PastoralCore.inside({x:e.clientX,y:e.clientY},ic)))return;
+    press={id:e.pointerId,x:e.clientX,y:e.clientY,sx:e.screenX,sy:e.screenY,drag:false};
+    surface.setPointerCapture(e.pointerId);
+  });
+  function measure(e){
+    press.drag ||= Math.abs(e.screenX-press.sx)>3||Math.abs(e.screenY-press.sy)>3;
+    if(!press.drag)return;
+    box.hidden=false;
+    Object.assign(box.style,{left:Math.min(press.x,e.clientX)+'px',top:Math.min(press.y,e.clientY)+'px',
+      width:Math.abs(press.x-e.clientX)+'px',height:Math.abs(press.y-e.clientY)+'px'});
+  }
+  surface.addEventListener('pointermove',e=>{if(press?.id===e.pointerId)measure(e);});
+  surface.addEventListener('pointerup',e=>{
+    if(press?.id!==e.pointerId||e.button!==0)return;
+    measure(e);
+    if(press.drag)pastoralScene?.selectBox(press.x,press.y,e.clientX,e.clientY);
+    else pastoralScene?.clickAt(e.clientX,e.clientY,performance.now());
+    cancel();
+  });
+  for(const name of ['pointercancel','lostpointercapture'])surface.addEventListener(name,cancel);
+  addEventListener('blur',cancel);
+  addEventListener('keydown',e=>{if(e.key==='Escape'){cancel();pastoralScene?.clearSelection();}});
+}
 addEventListener('keydown', e => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
     const ic = selected; select(null); ic.el.remove(); icons = icons.filter(x => x !== ic); commit();
@@ -945,7 +1170,7 @@ let resizeT = 0;
 addEventListener('resize', () => {
   clearTimeout(resizeT);
   resizeT = setTimeout(() => {
-    if (WALL || PREVIEW) { resize(); refresh(); skyClouds.length = 0; return; }
+    if (WALL || PREVIEW) { resize(); refresh(); skyClouds.length = 0; syncPowerSaving(); return; }
     resize(); computeGrid();
     if (grid.cols * grid.rows > layoutCapacity && layoutCapacity < 40) { applyLayout(layoutKind); syncPanel(); return; }
     for (const ic of icons) setPos(ic, Math.min(ic.x, Math.max(0, DW - ic.w)), Math.min(ic.y, Math.max(0, DH - ic.h)));
@@ -956,7 +1181,7 @@ function tickClock() {
   const d = new Date(), z = n => String(n).padStart(2, '0');
   document.getElementById('clock').innerHTML = `${z(d.getHours())}:${z(d.getMinutes())}<br>${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
-setInterval(tickClock, 15000); tickClock();
+if (!WALL && !PREVIEW) { setInterval(tickClock, 15000); tickClock(); }
 
 /* ---------- 启动 ---------- */
 window.__dbg = {
@@ -972,7 +1197,7 @@ resize();
 buildNoiseTex();
 if (WALL || PREVIEW) startHostedMode();
 else { applyLayout('mine'); syncPanel(); }
-requestAnimationFrame(frame);
+animationFrame = requestAnimationFrame(frame);
 
 /* ======================================================================
    托管模式：画面由外部驱动
@@ -986,15 +1211,23 @@ function applySettings(v) {
   if (typeof v.seed === 'number' && v.seed !== seed) reseed(v.seed);   // 设置窗口的"刷新"：换一张（桌面和预览用同一个种子）
   let field = false, adaptiveChanged = false;
   for (const k in v) {
-    if ((!SLIDERS.some(s => s.key === k) && !DISPLAY_KEYS.includes(k)) || typeof v[k] !== typeof P[k] || P[k] === v[k]) continue;
+    const slider = SLIDERS.find(s => s.key === k);
+    if ((!slider && !DISPLAY_KEYS.includes(k)) || typeof v[k] !== typeof P[k] || P[k] === v[k]) continue;
     if (DISPLAY_KEYS.includes(k) && v[k] !== 0 && v[k] !== 1) continue;
+    if (slider && !(v[k] >= slider.min && v[k] <= slider.max)) continue;
     P[k] = v[k];
     if (k === 'adaptive') adaptiveChanged = true;
     if (k === 'sigma') field = true;
   }
   if (adaptiveChanged && FB) commit();
   else if (field && FB) refresh();
-
+  if (PASTORAL) {
+    lastIconLightAt = -Infinity;
+    if (paused && !powerSaving() && FB) {
+      const now=performance.now(); preparePastoral(now,0); draw(now);
+    } else if (pastoralScene) updateIconLight(performance.now(),pastoralScene.aurora());
+  }
+  syncPowerSaving();
 }
 
 function drawGhosts() {
@@ -1012,15 +1245,43 @@ function startHostedMode() {
   commit(true);                                   // 先是一片草地（还不知道图标在哪）
   let first = true;
   const handle = m => {
+    if(PASTORAL&&PREVIEW&&m.t==='interactionHost'){pastoralPreviewHosted=!!m.v;return;}
+    if(PASTORAL&&WALL&&['desktopClick','desktopSelect','moveSelection','triggerEvent'].includes(m.t)){
+      const now=performance.now(),dpi=window.devicePixelRatio||1;
+      if(!pastoralScene)preparePastoral(now,0);
+      if(m.t==='moveSelection'||m.t==='triggerEvent')pastoralScene.syncPreviewGesture(now);
+      if(m.t==='desktopSelect')pastoralScene.selectBox(m.x/dpi,m.y/dpi,m.x2/dpi,m.y2/dpi);
+      else if(m.t==='desktopClick')pastoralScene.clickAt(m.x/dpi,m.y/dpi,now);
+      else if(m.t==='moveSelection')pastoralScene.moveSelection(m.ids,{x:m.x*W,y:m.y*H});
+      else pastoralScene.triggerEvent(now);
+      if(paused||powerSaving())draw(now);
+      return;
+    }
+    if (m.t === 'world' && powerSaving()) { queueMicrotask(syncPowerSaving); return; }
+    if (m.t === 'power') { onBattery = !!m.v; syncPowerSaving(); return; }
+    if (PASTORAL && m.t === 'tryMeteor') {
+      const now = performance.now();
+      if (!pastoralScene) preparePastoral(now,0);
+      meteorTrialUntil = pastoralScene.tryMeteor(now);
+      lastTrialFrame = -Infinity;
+      if (!animationFrame) animationFrame = requestAnimationFrame(frame);
+      return;
+    }
     if (m.t === 'pause') { paused = PREVIEW ? false : m.v; return; }
-    if (m.t === 'settings') { applySettings(m.v || {}); return; }
-    if (m.t === 'reset') { applySettings(Object.assign({}, DEFAULTS, PASTORAL ? {realTime:1,fixedTime:720} : {}, m.v || {})); return; }
+    if (m.t === 'settings') { if(typeof m.onBattery==='boolean')onBattery=m.onBattery; applySettings(m.v || {}); return; }
+    if (m.t === 'reset') { applySettings(Object.assign({}, DEFAULTS, m.v || {})); return; }
     if (m.t !== 'icons') return;
     const k = window.devicePixelRatio || 1;       // 物理像素 → CSS 像素
     icons = m.vis ? m.r.map(([l, t, r, b]) => ({ x: l / k, y: t / k, w: (r - l) / k, h: (b - t) / k })) : [];
+    if (PASTORAL) { lastIconLightAt = -Infinity; lastLightMessage = null; iconLayoutRevision = m.rev || 0; }
     if (PREVIEW) drawGhosts();
     iconsSeen = true;
     commit(first);                                // 第一次：云慢慢长出来；之后：云跟着图标平滑移动
+    if (powerSaving()) syncPowerSaving();
+    else if (PASTORAL && paused) {
+      refresh(); curMix=1; massList=null;
+      const now=performance.now(); preparePastoral(now,0); draw(now);
+    }
     first = false;
   };
   if (PREVIEW) {

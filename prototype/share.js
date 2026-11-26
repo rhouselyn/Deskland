@@ -63,6 +63,7 @@
   }
   // 一个图标（示例图标 + 名字的色块）画在 (px, py)（逻辑像素）；样子按图标第一次出现的位置定，拖动时不会变样
   // lift：拖起来的程度（0..1）：稍微放大、半透明，像拖动时的样子
+  let shareGlyphTile;
   function drawIcon(ctx, ic, s, px, py, lift) {
     if (!ic._seed) ic._seed = [ic.x, ic.y];
     const u = k => rnd(ic._seed[0], ic._seed[1], k);
@@ -75,7 +76,20 @@
     }
     const x = px * s, y = py * s, w = ic.w * s, h = ic.h * s;
     const g = Math.min(48 * s, w - 8 * s, h * 0.62);         // 图标：上面居中的一个方块
-    sampleGlyph(ctx, x + (w - g) / 2, y + 3 * s, g, u);
+    if (typeof iconTint === 'function' && P.iconLighting && pastoralScene && g > 0) {
+      const size = Math.ceil(g);
+      const tile = shareGlyphTile ||= document.createElement('canvas');
+      if (tile.width !== size || tile.height !== size) tile.width = tile.height = size;
+      const pen = tile.getContext('2d');
+      pen.clearRect(0, 0, size, size);
+      sampleGlyph(pen, 0, 0, g, u);
+      const [red,green,blue,alpha] = iconTint(px+ic.w/2, py+ic.h*.3, pastoralScene.aurora(), pastoralScene.paint);
+      pen.globalCompositeOperation = 'source-atop';
+      pen.fillStyle = 'rgba('+[red,green,blue,alpha/255].join(',')+')';
+      pen.fillRect(0, 0, size, size);
+      pen.globalCompositeOperation = 'source-over';
+      ctx.drawImage(tile, x+(w-g)/2, y+3*s);
+    } else sampleGlyph(ctx, x + (w - g) / 2, y + 3 * s, g, u);
     const lh = 15 * s, ly = y + 3 * s + g + 4 * s, lines = u(9) < 0.45 ? 2 : 1;   // 名字：下面一两行
     if (ly + lh <= y + h + 6 * s)
       for (let i = 0; i < lines; i++) sampleLabel(ctx, x + w / 2, ly + i * lh, w * (i ? 0.3 + 0.35 * u(11) : 0.5 + 0.42 * u(10)), lh);
@@ -256,6 +270,7 @@
     if (!mime) return Promise.reject(new Error('这台电脑不支持录视频'));
     if (busy) return Promise.reject(new Error('上一段还在录'));
     busy = true;
+    if (typeof setRecordingActive === 'function') setRecordingActive(true);
     const wasPaused = typeof paused !== 'undefined' && paused;
     if (wasPaused) paused = false;
     return new Promise(ok => {
@@ -265,7 +280,12 @@
         if ((ran >= 10 && settled()) || dt > 6000 || (dt > 1000 && ran < 2)) ok(); else setTimeout(tick, 100);
       };
       if (!wasPaused && settled()) ok(); else tick();
-    }).then(() => recordNow(onProgress, mime, wasPaused));
+    }).then(() => recordNow(onProgress, mime, wasPaused)).catch(err => {
+      if (typeof paused !== 'undefined') paused = hostPause === null ? wasPaused : hostPause;
+      busy = false;
+      if (typeof setRecordingActive === 'function') setRecordingActive(false);
+      throw err;
+    });
   }
   function recordNow(onProgress, mime, wasPaused) {
     // 画面大小：按屏幕比例，大约 200 万像素（宽高取偶数，H.264 要求）；网页视频可以用 window.__recMaxPixels 放宽
@@ -337,6 +357,7 @@
         if (demo) commit();                                  // 仅演示编排需要恢复图标场
         if (typeof paused !== 'undefined') paused = hostPause === null ? wasPaused : hostPause;
         busy = false;
+        if (typeof setRecordingActive === 'function') setRecordingActive(false);
         if (err) { try { mr.stop(); } catch (e) { } reject(err); return; }
         mr.onstop = () => {
           const blob = new Blob(chunks, { type: mime.split(';')[0] });

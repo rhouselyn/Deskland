@@ -29,24 +29,31 @@ static class Program
 {
     public static readonly string ExitEventName = "DesklandHost_Exit" + InstallProfile.Suffix;
     public static readonly string MenuEventName = "DesklandHost_Menu" + InstallProfile.Suffix;
+    public static readonly string ReloadEventName = "DesklandHost_Reload" + InstallProfile.Suffix;
     public static readonly string SettingsEventName = "DesklandHost_Settings" + InstallProfile.Suffix;
 
     // 通知正在运行的实例（退出 / 弹出菜单）
     static void Signal(string name)
     {
-        Native.AllowSetForegroundWindow(-1);            // 让运行中的实例能把菜单弹到最前面
+        if (name == MenuEventName || name == SettingsEventName) Native.AllowSetForegroundWindow(-1);
         EventWaitHandle ev;
-        if (EventWaitHandle.TryOpenExisting(name, out ev)) ev.Set();
+        if (EventWaitHandle.TryOpenExisting(name, out ev)) using (ev) ev.Set();
     }
 
     [STAThread]
     static void Main(string[] args)
     {
+        int waitAt=Array.IndexOf(args,"--wait-host"),waitPid;
+        if(waitAt>=0&&waitAt+1<args.Length&&int.TryParse(args[waitAt+1],out waitPid)){
+            try{using(var old=Process.GetProcessById(waitPid))if(!old.WaitForExit(15000))return;}catch(ArgumentException){}
+            var rest=new List<string>(args);rest.RemoveRange(waitAt,2);args=rest.ToArray();
+        }
         // Deskland.exe --exit ：通知正在运行的实例正常退出（恢复原壁纸）
         // Deskland.exe --menu ：让正在运行的实例在鼠标位置弹出菜单
         // Deskland.exe --settings ：让正在运行的实例打开设置窗口
         if (args.Length > 0 && args[0] == "--exit") { Signal(ExitEventName); return; }
         if (args.Length > 0 && args[0] == "--menu") { Signal(MenuEventName); return; }
+        if (args.Length > 0 && args[0] == "--reload") { Signal(ReloadEventName); return; }
         if (args.Length > 0 && args[0] == "--settings") { Signal(SettingsEventName); return; }
         if (args.Length > 0 && args[0] == "--exit-installed") { Environment.ExitCode = InstallProfile.StopInstalled(); return; }
         // Preview never migrates or shares the development edition's settings.                                 // 老名字（Habitat Wallpaper）下的数据目录、开机自启项搬过来
@@ -214,9 +221,11 @@ static class Json
 static class Settings
 {
     static readonly string FilePath = Path.Combine(Log.DataDir, "settings.json");
-    public static string Theme = "beach";
+    public static string Theme = "pastoral";
     public static string Lang = "auto";                // 界面语言："auto"（跟随系统）或 I18n.Supported 里的一种
     public static Dictionary<string, Dictionary<string, object>> Params = new Dictionary<string, Dictionary<string, object>>();
+    public static Dictionary<string, object> Pet = DesktopPet.Defaults();
+    public static Dictionary<string, object> PastoralDefaults = new Dictionary<string, object>();
 
     public static void Load()
     {
@@ -228,12 +237,31 @@ static class Settings
             object v;
             if (root.TryGetValue("theme", out v) && v is string) Theme = (string)v;
             if (root.TryGetValue("lang", out v) && v is string) Lang = (string)v;
+            bool hasPet = root.TryGetValue("pet", out v) && v is Dictionary<string, object>;
+            if(hasPet){
+                var oldPet=(Dictionary<string,object>)v;
+                if(!oldPet.ContainsKey("engine")){
+                    string backup=Path.Combine(Log.DataDir,"settings-before-kurocat-v47.json");
+                    if(!File.Exists(backup))File.Copy(FilePath,backup);
+                }
+                Pet=DesktopPet.Migrate(oldPet);
+            }
             if (root.TryGetValue("params", out v) && v is Dictionary<string, object>)
                 foreach (var kv in (Dictionary<string, object>)v)
                 {
                     var d = kv.Value as Dictionary<string, object>;
                     if (d != null) Params[kv.Key] = d;
                 }
+            Dictionary<string,object> old;
+            if(Params.TryGetValue("pastoral",out old)) {
+                object enabled,size;
+                if(!hasPet&&old.TryGetValue("kurocat",out enabled)&&DesktopPet.Valid("enabled",enabled))Pet["enabled"]=enabled;
+                if(!hasPet&&old.TryGetValue("kurocatScale",out size)) {
+                    double factor;if(double.TryParse(Convert.ToString(size,System.Globalization.CultureInfo.InvariantCulture),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out factor))
+                        Pet["scale"]=(int)Math.Round(Math.Max(.5,Math.Min(2,factor))*100);
+                }
+                old.Remove("kurocat");old.Remove("kurocatScale");
+            }
             Log.Write("已读取设置：主题 " + Theme);
         }
         catch (Exception ex) { Log.Write("读取设置失败（将使用默认值）：" + ex.Message); }
@@ -244,7 +272,7 @@ static class Settings
         try
         {
             Directory.CreateDirectory(Log.DataDir);
-            File.WriteAllText(FilePath, Json.Stringify(Json.Obj("version", 1, "theme", Theme, "lang", Lang, "params", Params)), new UTF8Encoding(false));
+            File.WriteAllText(FilePath, Json.Stringify(Json.Obj("version", 1, "theme", Theme, "lang", Lang, "params", Params,"pet",Pet)), new UTF8Encoding(false));
         }
         catch (Exception ex) { Log.Write("保存设置失败：" + ex.Message); }
     }
@@ -253,6 +281,9 @@ static class Settings
     {
         Dictionary<string, object> d;
         if (!Params.TryGetValue(theme, out d)) Params[theme] = d = new Dictionary<string, object>();
+        if (theme == "pastoral")
+            foreach (var pair in PastoralDefaults)
+                if (!d.ContainsKey(pair.Key)) d[pair.Key] = pair.Value;
         return d;
     }
 }
@@ -320,13 +351,16 @@ class HostContext : ApplicationContext
     readonly NotifyIcon tray;
     readonly MenuItem pauseItem, autoStartItem, settingsItem, reloadItem, exitItem;
     readonly System.Windows.Forms.Timer watch;
-    readonly EventWaitHandle exitEvent, menuEvent, settingsEvent;
+    readonly EventWaitHandle exitEvent, menuEvent, settingsEvent, reloadEvent;
     readonly HotkeyWindow hotkey = new HotkeyWindow();
+    readonly DesktopTaskbar taskbar = new DesktopTaskbar();
+    DesktopPet desktopPet;
     readonly Queue<DateTime> restarts = new Queue<DateTime>();
     WallpaperForm form, dead;
     SettingsForm settingsWin;
     DateTime nextStart = DateTime.MaxValue, saveDue = DateTime.MaxValue;
     bool manualPause, exiting;
+    bool openPetsOnHello;
     string autoStartSw;                                 // 开机自启没跑起来（只在手动打开时检查）：正在运行的安全软件名（没认出来是 ""）；没问题是 null
     string updateVersion, updateUrl, updateStatus = "", updateError = "";
     double updateProgress = -1;                         // -1 = 当前阶段没有可显示的百分比
@@ -336,10 +370,17 @@ class HostContext : ApplicationContext
         this.pageDir = pageDir;
         Log.Write("启动，页面目录：" + pageDir + (showSettings ? "" : "（开机自动启动）"));
         if (showSettings) autoStartSw = AutoStartCheck.Detect(IsAutoStart());
+        Settings.PastoralDefaults = Themes.DefaultsFor(pageDir, "pastoral");
         Settings.Load();
+        desktopPet=new DesktopPet();
+        desktopPet.Changed+=delegate { if(settingsWin!=null)settingsWin.Post(desktopPet.Message()); };
+        desktopPet.PreferencesChanged+=SaveSoon;
+        desktopPet.OpenRequested+=delegate { openPetsOnHello=true;OpenSettings();if(settingsWin!=null)settingsWin.Post("{\"t\":\"openPets\"}"); };
+        desktopPet.Apply();
         I18n.Load(pageDir, Settings.Lang);
         exitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, Program.ExitEventName);
         menuEvent = new EventWaitHandle(false, EventResetMode.AutoReset, Program.MenuEventName);
+        reloadEvent = new EventWaitHandle(false, EventResetMode.AutoReset, Program.ReloadEventName);
         settingsEvent = new EventWaitHandle(false, EventResetMode.AutoReset, Program.SettingsEventName);
 
         // 快捷键 Ctrl+Alt+H：在鼠标位置弹出菜单
@@ -428,8 +469,11 @@ class HostContext : ApplicationContext
 
     string SettingsMessage()
     {
-        return Json.Stringify(Json.Obj("t", "settings", "v", Settings.For(Settings.Theme)));
+        return Json.Stringify(Json.Obj("t", "settings", "v", Settings.For(Settings.Theme), "onBattery", OnBattery));
     }
+
+    static bool OnBattery { get { return SystemInformation.PowerStatus.PowerLineStatus == PowerLineStatus.Offline; } }
+    bool? lastOnBattery;
 
     string UpdateStateMessage()
     {
@@ -463,6 +507,15 @@ class HostContext : ApplicationContext
         return Themes.Allowed(pageDir, id, delegate(string product) { return false; });
     }
 
+    static bool NormalizedCoordinate(Dictionary<string, object> message, string key, out double value)
+    {
+        object raw;
+        value = 0;
+        if (!message.TryGetValue(key, out raw) || !(raw is int || raw is long || raw is decimal || raw is double)) return false;
+        value = Convert.ToDouble(raw);
+        return value >= 0 && value <= 1;
+    }
+
     // 设置页发来的消息：hello / set / reset / theme / autostart / lang / updateProgram
     public void OnSettingsMessage(string s)
     {
@@ -475,17 +528,45 @@ class HostContext : ApplicationContext
             case "hello":
                 Rectangle scr = Screen.PrimaryScreen.Bounds;
                 settingsWin.Post(Json.Stringify(Json.Obj("t", "init", "theme", Settings.Theme, "params", Settings.Params,
-                    "screen", Json.Obj("w", scr.Width, "h", scr.Height), "autostart", IsAutoStart(),
+                    "screen", Json.Obj("w", scr.Width, "h", scr.Height), "autostart", IsAutoStart(), "onBattery", OnBattery,
                     "autostartWarn", autoStartSw != null, "autostartSw", autoStartSw ?? "",
                     "lang", Settings.Lang, "langEff", I18n.Code, "langSys", I18n.Sys)));
                 if (updateVersion != null) PostUpdateState();
                 if (form != null && form.LastIcons != "") settingsWin.Post(form.LastIcons);
+                settingsWin.Post(desktopPet.Message());
+                if(openPetsOnHello){settingsWin.Post("{\"t\":\"openPets\"}");openPetsOnHello=false;}
+                break;
+            case "petSet": {
+                object key,value;
+                if(!m.TryGetValue("key",out key)||!m.TryGetValue("value",out value)||!(key is string)||!DesktopPet.Valid((string)key,value))return;
+                Settings.Pet[(string)key]=value;
+                desktopPet.Apply();SaveSoon();break;
+            }
+            case "petAction": {
+                object action;if(m.TryGetValue("action",out action))desktopPet.InvokeAction(action as string);break;
+            }
+            case "petReset":
+                Settings.Pet=DesktopPet.Defaults();desktopPet.Apply();SaveSoon();break;
+            case "petSkin": {
+                object skin;if(m.TryGetValue("v",out skin)&&skin is Dictionary<string,object>)desktopPet.SaveSkin(skin);break;
+            }
+            case "petDeleteSkin": {
+                object id;if(m.TryGetValue("id",out id))desktopPet.DeleteSkin(id as string);break;
+            }
+            case "petCopyMcp":
+                Clipboard.SetText(Json.Stringify(Json.Obj("mcpServers",Json.Obj("deskland-pet",Json.Obj("command",Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"DesklandPet.exe"),"args",new[]{"--mcp"})))));break;
+            case "petAdmin":
+                try{
+                    var info=new ProcessStartInfo(Application.ExecutablePath,"--wait-host "+Process.GetCurrentProcess().Id+" --autostart"){UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden};
+                    Process.Start(info);Exit();
+                }catch(System.ComponentModel.Win32Exception ex){if(ex.NativeErrorCode!=1223)Log.Write("管理员重启未完成："+ex.Message);}
                 break;
             case "set":
             {
                 string theme = m["theme"] as string, key = m["key"] as string;
                 if (theme == null || key == null) return;
                 Settings.For(theme)[key] = m["value"];
+                if (theme == "pastoral" && key == "transparentTaskbar") ApplyTaskbar();
                 if (theme == Settings.Theme && form != null)
                     form.Post(Json.Stringify(Json.Obj("t", "settings", "v", Json.Obj(key, m["value"]))));
                 SaveSoon();
@@ -496,6 +577,7 @@ class HostContext : ApplicationContext
                 string theme = m["theme"] as string;
                 if (theme == null) return;
                 Settings.Params.Remove(theme);
+                if (theme == "pastoral") ApplyTaskbar();
                 if (theme == Settings.Theme && form != null) form.Post("{\"t\":\"reset\"}");
                 SaveSoon();
                 Log.Write("恢复默认设置：" + theme);
@@ -513,9 +595,34 @@ class HostContext : ApplicationContext
                 string page = Themes.PageFor(pageDir, id);
                 if (page == null || id == Settings.Theme) return;
                 Settings.Theme = id;
+                ApplyTaskbar();
                 SaveSoon();
                 if (form != null) form.LoadPage(page);
                 Log.Write("切换主题：" + id);
+                break;
+            }
+            case "tryMeteor":
+                if (Settings.Theme == "pastoral" && form != null) form.Post("{\"t\":\"tryMeteor\"}");
+                break;
+            case "triggerEvent":
+                if (Settings.Theme == "pastoral" && form != null && ThemeAllowed("pastoral"))
+                    form.Post("{\"t\":\"triggerEvent\"}");
+                break;
+            case "moveSelection":
+            {
+                object raw;
+                double x, y;
+                if (form == null || Settings.Theme != "pastoral" || !ThemeAllowed("pastoral") ||
+                    !NormalizedCoordinate(m, "x", out x) || !NormalizedCoordinate(m, "y", out y) ||
+                    !m.TryGetValue("ids", out raw)) return;
+                var ids = raw as object[];
+                if (ids == null || ids.Length == 0 || ids.Length > 512) return;
+                foreach (object item in ids)
+                {
+                    string id = item as string;
+                    if (string.IsNullOrWhiteSpace(id) || id.Length > 128) return;
+                }
+                form.Post(Json.Stringify(Json.Obj("t", "moveSelection", "ids", ids, "x", x, "y", y)));
                 break;
             }
             case "worldRequest":
@@ -773,6 +880,7 @@ class HostContext : ApplicationContext
     {
         nextStart = DateTime.MaxValue;
         if (!ThemeAllowed(Settings.Theme)) Settings.Theme = ThemeAllowed("beach") ? "beach" : "meadow";
+        ApplyTaskbar();
         string page = ThemeAllowed(Settings.Theme) ? Themes.PageFor(pageDir, Settings.Theme) : null;
         if (page == null)
         {
@@ -812,10 +920,31 @@ class HostContext : ApplicationContext
         nextStart = DateTime.Now.AddSeconds(1);
     }
 
+    void ApplyTaskbar()
+    {
+        object value;
+        taskbar.SetEnabled(Settings.Theme == "pastoral" && Settings.For("pastoral").TryGetValue("transparentTaskbar", out value) && Equals(value, 1));
+    }
+
     void Watch()
     {
+        if (Interlocked.Exchange(ref taskbar.Error, null) != null)
+        {
+            Settings.For("pastoral")["transparentTaskbar"] = 0;
+            SaveSoon();
+            if (settingsWin != null) settingsWin.Post("{\"t\":\"taskbarError\"}");
+        }
+        bool onBattery = OnBattery;
+        if (lastOnBattery != onBattery)
+        {
+            lastOnBattery = onBattery;
+            string power = Json.Stringify(Json.Obj("t", "power", "v", onBattery));
+            if (form != null) form.Post(power);
+            if (settingsWin != null) settingsWin.Post(power);
+        }
         if (dead != null) { try { dead.Dispose(); } catch { } dead = null; }
         if (exitEvent.WaitOne(0)) { Exit(); return; }
+        if (reloadEvent.WaitOne(0) && form != null) form.Reload();
         if (menuEvent.WaitOne(0)) ShowMenu();
         if (settingsEvent.WaitOne(0)) OpenSettings();
         if (DateTime.Now >= saveDue) { saveDue = DateTime.MaxValue; Settings.Save(); }
@@ -830,6 +959,8 @@ class HostContext : ApplicationContext
         if (saveDue != DateTime.MaxValue) Settings.Save();
         if (settingsWin != null) { try { settingsWin.Close(); } catch { } }
         hotkey.Dispose();
+        desktopPet.Dispose();
+        taskbar.Dispose();
         tray.Visible = false;
         if (form != null) form.Shutdown();
         Log.Write("退出");
@@ -917,6 +1048,9 @@ class SettingsForm : Form
         web.DefaultBackgroundColor = BackColor;
         web.CreationProperties = new CoreWebView2CreationProperties();
         web.CreationProperties.UserDataFolder = Path.Combine(Log.DataDir, "WebView2");
+        // Match the pet's environment so both windows share the browser/GPU processes.
+        web.CreationProperties.AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required";
+        web.CreationProperties.Language = System.Globalization.CultureInfo.GetCultureInfo(Native.GetUserDefaultUILanguage()).Name;
         Controls.Add(web);
     }
 
@@ -995,11 +1129,21 @@ class WallpaperForm : Form
     readonly System.Windows.Forms.Timer iconTimer, fgTimer;
     readonly string pageDir;
     readonly IconReader reader = new IconReader();
+    readonly DesktopIconLight iconLight = new DesktopIconLight();
+    readonly List<Native.RECT> glyphs = new List<Native.RECT>();
+    uint[] lightColors = new uint[0];
+    int layoutRevision, layoutCount;
+    string layoutGeometry = "";
+    DateTime nextMaskCheck;
     Rectangle screen;
     IntPtr parentHwnd, insertAfter;
     string lastIcons = "";
     int lastPause = -1;
     bool manualPause, shuttingDown;
+    bool mouseRegistered;
+    Rectangle? clickArea;
+    Native.POINT selectionStart;
+    bool selectionDrag;
 
     public bool Fatal { get; private set; }
 
@@ -1027,6 +1171,8 @@ class WallpaperForm : Form
         web.DefaultBackgroundColor = BackColor;
         web.CreationProperties = new CoreWebView2CreationProperties();
         web.CreationProperties.UserDataFolder = Path.Combine(Log.DataDir, "WebView2");
+        web.CreationProperties.AdditionalBrowserArguments = "--autoplay-policy=no-user-gesture-required";
+        web.CreationProperties.Language = System.Globalization.CultureInfo.GetCultureInfo(Native.GetUserDefaultUILanguage()).Name;
         Controls.Add(web);
 
         iconTimer = new System.Windows.Forms.Timer();
@@ -1038,6 +1184,7 @@ class WallpaperForm : Form
     }
 
     public void SetManualPause(bool v) { manualPause = v; PollForeground(); }
+
 
     // ---- 一键分享：请页面画一张打好马赛克的桌面图（页面不截屏，只用图标的位置） ----
     Action<string, string, string> snapshotDone;           // (缩略图, 整张 PNG, 出错信息)
@@ -1129,6 +1276,10 @@ class WallpaperForm : Form
     // 切换主题：换页面；新页面就绪后会重新收到设置和图标
     public void LoadPage(string newPage)
     {
+        EnableDesktopClicks(false);
+        iconLight.Dispose();
+        lightColors = new uint[0];
+        layoutGeometry = "";
         page = newPage;
         if (web.CoreWebView2 == null) return;
         try { web.CoreWebView2.Navigate(PageUrl); }
@@ -1166,6 +1317,7 @@ class WallpaperForm : Form
                 try { msg = a.TryGetWebMessageAsString(); } catch { }
                 if (page == "pastoral.html" && a.Source.StartsWith("https://app.local/pastoral.html", StringComparison.OrdinalIgnoreCase))
                 {
+                    if (msg != null && msg.StartsWith("icon-light|")) { ReceiveIconLight(msg); return; }
                     if (msg == "world-load") { string raw = PastoralStore.Load(); if (raw != null) { LastWorld = raw; Post("{\"t\":\"world\",\"v\":" + raw + "}"); } return; }
                     if (msg != null && (msg.StartsWith("world-state|") || msg.StartsWith("world-save|")))
                     {
@@ -1177,8 +1329,10 @@ class WallpaperForm : Form
                 if (msg != null && msg.StartsWith("snapshot|")) { OnSnapshot(msg); return; }
                 if (msg != null && msg.StartsWith("recprogress|")) { if (RecordProgress != null) RecordProgress(msg.Substring(12)); return; }
                 if (msg != null && msg.StartsWith("record|")) { OnRecord(msg); return; }
+                // Late messages from the previous theme must not restart the handshake.
+                if (msg != "ready" || !string.Equals(a.Source, PageUrl, StringComparison.OrdinalIgnoreCase)) return;
                 if (SettingsJson != null) core.PostWebMessageAsString(SettingsJson());
-                lastIcons = ""; lastPause = -1; PollIcons(); PollForeground();
+                layoutGeometry = ""; lastPause = -1; PollIcons(); PollForeground();
             };
             core.Navigate(PageUrl);
             iconTimer.Start();
@@ -1337,13 +1491,39 @@ class WallpaperForm : Form
     }
 
     // ---------------------------------------------------------------- 读取桌面图标
+    void ReceiveIconLight(string message)
+    {
+        string[] parts = message.Split('|');
+        int rev;
+        if (parts.Length != 3 || !int.TryParse(parts[1], out rev) || rev != layoutRevision) return;
+        if (parts[2].Length == 0)
+        {
+            object enabled;
+            if (layoutCount == 0 && (!Settings.For("pastoral").TryGetValue("iconLighting", out enabled) || !Equals(enabled, 0)))
+                iconLight.SetVisible(false);
+            else { lightColors = new uint[0]; iconLight.Clear(); }
+            return;
+        }
+        string[] values = parts[2].Split(',');
+        if (values.Length != layoutCount) return;
+        if (glyphs.Count != layoutCount && !reader.ReadGlyphs(layoutCount, glyphs)) return;
+        var colors = new uint[values.Length];
+        for (int i = 0; i < colors.Length; i++)
+            if (values[i].Length != 8 || !uint.TryParse(values[i], System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out colors[i])) return;
+        iconLight.Update(reader.ListView, glyphs, colors, lightColors.Length != colors.Length);
+        lightColors = colors;
+    }
+
     void PollIcons()
     {
         EnsureZOrder();
         if (web.CoreWebView2 == null) return;
         bool visible;
         List<Native.RECT> rects = reader.Read(out visible);
-        if (rects == null) return;
+        if (rects == null) { iconLight.SetVisible(false); layoutGeometry = ""; return; }
+        iconLight.SetVisible(visible);
+        iconLight.RefreshPlacement();
         var sb = new StringBuilder();
         sb.Append("{\"t\":\"icons\",\"vis\":").Append(visible ? "true" : "false").Append(",\"r\":[");
         for (int i = 0; i < rects.Count; i++)
@@ -1355,7 +1535,18 @@ class WallpaperForm : Form
         }
         sb.Append("]}");
         string json = sb.ToString();
-        if (json == lastIcons) return;
+        bool changed = json != layoutGeometry;
+        layoutCount = rects.Count;
+        if (changed) glyphs.Clear();
+        if (page == "pastoral.html" && visible && lightColors.Length == layoutCount && lightColors.Length > 0 && (changed || DateTime.UtcNow >= nextMaskCheck))
+        {
+            if (reader.ReadGlyphs(layoutCount, glyphs)) iconLight.Update(reader.ListView, glyphs, lightColors, true);
+            else iconLight.Clear();
+            nextMaskCheck = DateTime.UtcNow.AddSeconds(5);
+        }
+        if (!changed) return;
+        layoutGeometry = json;
+        json = json.Insert(1, "\"rev\":" + (++layoutRevision) + ",");
         lastIcons = json;
         if (IconsChanged != null) IconsChanged(json);
         Post(json);
@@ -1363,6 +1554,66 @@ class WallpaperForm : Form
     }
 
     // ---------------------------------------------------------------- 最大化 / 全屏时暂停
+    void EnableDesktopClicks(bool enabled)
+    {
+        if (enabled == mouseRegistered) return;
+        clickArea = null;
+        var device = new Native.RAWINPUTDEVICE { UsagePage = 1, Usage = 2,
+            Flags = enabled ? 0x100u : 1u, Target = enabled ? Handle : IntPtr.Zero }; // INPUTSINK / REMOVE
+        if (Native.RegisterRawInputDevices(ref device, 1, (uint)Marshal.SizeOf(device))) mouseRegistered = enabled;
+    }
+
+    bool DesktopAt(Native.POINT point, bool allowIcon)
+    {
+        if (!screen.Contains(point.X, point.Y)) return false;
+        IntPtr hit = Native.WindowFromPoint(point), list = reader.ListView;
+        if (list == IntPtr.Zero || hit == IntPtr.Zero || !Native.IsWindow(list)) return false;
+        if (hit == list) return allowIcon || reader.IsEmptyAt(point);
+        if (allowIcon && Native.IsChild(list, hit)) return true;
+        // With icons hidden, Explorer exposes the desktop view or the wallpaper underneath.
+        return !Native.IsWindowVisible(list) && (hit == Native.GetParent(list) ||
+            hit == Native.GetParent(Native.GetParent(list)) || hit == parentHwnd ||
+            hit == Handle || Native.IsChild(Handle, hit));
+    }
+
+    void ReadDesktopMouse(IntPtr packet)
+    {
+        Native.RAWMOUSEPACKET mouse;
+        uint size = Native.MousePacketSize;
+        if (Native.GetRawInputData(packet, 0x10000003, out mouse, ref size, Native.RawHeaderSize) != Native.MousePacketSize ||
+            mouse.Type != 0 || (!clickArea.HasValue && (mouse.ButtonFlags & 1) == 0)) return;
+        uint pos = Native.GetMessagePos();
+        var point = new Native.POINT { X = (short)pos, Y = (short)(pos >> 16) };
+        if ((mouse.ButtonFlags & 1) != 0)
+        {
+            clickArea = null;
+            if (DesktopAt(point, false))
+            {
+                Size drag = SystemInformation.DragSize;
+                clickArea = new Rectangle(point.X - drag.Width / 2, point.Y - drag.Height / 2, drag.Width, drag.Height);
+                selectionStart = point;
+                selectionDrag = false;
+            }
+        }
+        if (!clickArea.HasValue) return;
+        if ((mouse.ButtonFlags & 0xffc) != 0) { clickArea = null; return; }
+        if (!clickArea.Value.Contains(point.X, point.Y)) selectionDrag = true;
+        if ((mouse.ButtonFlags & 2) == 0) return;
+        clickArea = null;
+        if (!DesktopAt(point, selectionDrag)) return;
+        if (selectionDrag)
+            Post(Json.Stringify(Json.Obj("t", "desktopSelect", "x", selectionStart.X - screen.X, "y", selectionStart.Y - screen.Y,
+                "x2", point.X - screen.X, "y2", point.Y - screen.Y)));
+        else
+            Post(Json.Stringify(Json.Obj("t", "desktopClick", "x", point.X - screen.X, "y", point.Y - screen.Y)));
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == 0x00ff && mouseRegistered && !shuttingDown) ReadDesktopMouse(m.LParam); // WM_INPUT
+        base.WndProc(ref m);
+    }
+
     void PollForeground()
     {
         if (web.CoreWebView2 == null) return;
@@ -1370,7 +1621,11 @@ class WallpaperForm : Form
         string pauseBy = "";
         IntPtr fg = Native.GetForegroundWindow();
         int cloaked = 0;
-        if (!pause && fg != IntPtr.Zero && fg != Handle && Native.IsWindowVisible(fg)
+        object setting;
+        bool pauseWhenCovered = page != "pastoral.html"
+            || !Settings.For("pastoral").TryGetValue("pauseWhenCovered", out setting)
+            || !Equals(setting, 0);
+        if (!pause && pauseWhenCovered && fg != IntPtr.Zero && fg != Handle && Native.IsWindowVisible(fg)
             && (Native.DwmGetWindowAttribute(fg, 14 /* DWMWA_CLOAKED */, out cloaked, 4) != 0 || cloaked == 0))
         {
             var cls = new StringBuilder(64);
@@ -1386,6 +1641,9 @@ class WallpaperForm : Form
             }
         }
         int p = pause ? 1 : 0;
+        EnableDesktopClicks(page == "pastoral.html" && !pause &&
+            (SystemInformation.PowerStatus.PowerLineStatus != PowerLineStatus.Offline ||
+             (Settings.For("pastoral").TryGetValue("batterySaver", out setting) && Equals(setting, 0))));
         if (p == lastPause) return;
         lastPause = p;
         Post("{\"t\":\"pause\",\"v\":" + (pause ? "true" : "false") + "}");
@@ -1397,7 +1655,9 @@ class WallpaperForm : Form
     {
         if (shuttingDown) return;
         shuttingDown = true;
+        EnableDesktopClicks(false);
         iconTimer.Stop(); fgTimer.Stop();
+        iconLight.Dispose();
         reader.Dispose();
         IntPtr parent = parentHwnd;
         try { web.Dispose(); } catch { }
@@ -1410,8 +1670,10 @@ class WallpaperForm : Form
 
     protected override void OnHandleDestroyed(EventArgs e)
     {
+        EnableDesktopClicks(false);
         if (winEventHook != IntPtr.Zero) { Native.UnhookWinEvent(winEventHook); winEventHook = IntPtr.Zero; }
         iconTimer.Stop(); fgTimer.Stop();
+        iconLight.Dispose();
         reader.Dispose();
         base.OnHandleDestroyed(e);
     }
@@ -1452,6 +1714,17 @@ class IconReader : IDisposable
         return mem != IntPtr.Zero;
     }
 
+    public IntPtr ListView { get { return listView; } }
+    public bool IsEmptyAt(Native.POINT point)
+    {
+        if (mem == IntPtr.Zero || !Native.ScreenToClient(listView, ref point)) return false;
+        // LVM_HITTEST takes LVHITTESTINFO in the list owner's address space. Its first field is POINT.
+        var xy = new Native.RECT { Left = point.X, Top = point.Y };
+        IntPtr written, item;
+        return Native.WriteProcessMemory(proc, mem, ref xy, 8, out written) &&
+            Native.SendMessageTimeout(listView, 0x1012, IntPtr.Zero, mem, 2, 75, out item) != IntPtr.Zero &&
+            item.ToInt64() == -1;
+    }
     public List<Native.RECT> Read(out bool visible)
     {
         visible = false;
@@ -1475,6 +1748,32 @@ class IconReader : IDisposable
         return result;
     }
 
+    public bool ReadGlyphs(int count, List<Native.RECT> glyphs)
+    {
+        glyphs.Clear();
+        for (int i = 0; i < count; i++)
+        {
+            IntPtr n;
+            var glyph = new Native.RECT { Left = 1 }; // LVIR_ICON, list-view client coordinates
+            if (!Native.WriteProcessMemory(proc, mem, ref glyph, 16, out n)) return false;
+            Native.SendMessage(listView, 0x100E, new IntPtr(i), mem);
+            if (!Native.ReadProcessMemory(proc, mem, out glyph, 16, out n)) return false;
+            // LVIR_ICON includes the cell padding. The image origin gives its true width.
+            Native.SendMessage(listView, 0x1010 /* LVM_GETITEMPOSITION */, new IntPtr(i), mem);
+            Native.RECT pos;
+            if (!Native.ReadProcessMemory(proc, mem, out pos, 8, out n)) return false;
+            int imageSize = glyph.Right + glyph.Left - 2 * pos.Left;
+            if (imageSize > 0 && imageSize <= glyph.Bottom - glyph.Top)
+            {
+                glyph.Left = pos.Left; glyph.Right = pos.Left + imageSize;
+                glyph.Top += (glyph.Bottom - glyph.Top - imageSize) / 2;
+                glyph.Bottom = glyph.Top + imageSize;
+            }
+            glyphs.Add(glyph);
+        }
+        return true;
+    }
+
     void Close()
     {
         if (mem != IntPtr.Zero && proc != IntPtr.Zero) Native.VirtualFreeEx(proc, mem, IntPtr.Zero, 0x8000);
@@ -1487,6 +1786,24 @@ class IconReader : IDisposable
 
 static class Native
 {
+    [StructLayout(LayoutKind.Sequential)] public struct RAWINPUTDEVICE
+    { public ushort UsagePage, Usage; public uint Flags; public IntPtr Target; }
+    [StructLayout(LayoutKind.Sequential)] public struct RAWMOUSEPACKET
+    {
+        public uint Type, Size; public IntPtr Device, WParam;
+        public ushort Flags, Padding, ButtonFlags, ButtonData;
+        public uint RawButtons; public int LastX, LastY; public uint Extra;
+    }
+    public static readonly uint RawHeaderSize = (uint)Marshal.OffsetOf(typeof(RAWMOUSEPACKET), "Flags").ToInt32();
+    public static readonly uint MousePacketSize = (uint)Marshal.SizeOf(typeof(RAWMOUSEPACKET));
+    [DllImport("user32.dll")] public static extern bool RegisterRawInputDevices(ref RAWINPUTDEVICE device, uint count, uint size);
+    [DllImport("user32.dll")] public static extern uint GetRawInputData(IntPtr packet, uint command, out RAWMOUSEPACKET mouse, ref uint size, uint header);
+    [DllImport("user32.dll")] public static extern uint GetMessagePos();
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT point);
+    [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr window);
+    [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr window, uint flags);
+    [DllImport("user32.dll")] public static extern bool IsChild(IntPtr parent, IntPtr child);
+    [DllImport("kernel32.dll")] public static extern ushort GetUserDefaultUILanguage();
     public const int GWL_STYLE = -16, GWL_EXSTYLE = -20, WS_EX_LAYERED = 0x00080000;
     public const uint LWA_ALPHA = 0x2, SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002;
     public const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_NOREPEAT = 0x4000;

@@ -5,13 +5,36 @@
       "id": "pastoral",
       "adaptive": true,
       "name": "草原人家",
-      "desc": "与真实晨昏同步的小村庄，独立生活的牛群、居民和孩子，入夜时亮起火炬",
+      "desc": "白天，家犬陪村民玩耍，小鸟在屋檐筑巢，偶有候鸟飞过。牛群在草地吃草，边牧在黄昏带羊归圈",
       "page": "pastoral.html",
       "status": "ready",
       "product": "free",
       "thumb": "url(thumbs/pastoral.webp) center / cover no-repeat, #a2b778",
       "thumbSource": "custom",
+      "defaults": {
+        "location": {"lat": 22.6, "lon": 114.0, "zone": "Asia/Shanghai"},
+        "seed": 435975
+      },
       "groups": [
+        {
+          "name": "省电",
+          "params": [
+            {
+              "key": "pauseWhenCovered",
+              "label": "最大化或全屏时暂停壁纸",
+              "hint": "前台窗口覆盖桌面时暂停 NPC 和壁纸动画，返回桌面后恢复",
+              "options": ["关闭", "开启"],
+              "default": 0
+            },
+            {
+              "key": "batterySaver",
+              "label": "电池省电模式",
+              "hint": "默认开启。未接通电源时保持静止并停止动画循环，接通电源后恢复；分享动画时临时播放",
+              "options": ["关闭", "开启"],
+              "default": 1
+            }
+          ]
+        },
         {
           "name": "世界时间",
           "params": [
@@ -23,7 +46,7 @@
                 "关闭",
                 "开启"
               ],
-              "default": 1
+              "default": 0
             },
             {
               "key": "fixedTime",
@@ -32,8 +55,27 @@
               "min": 0,
               "max": 1439,
               "step": 1,
-              "default": 720,
+              "default": 1049,
               "format": "clock"
+            }
+          ]
+        },
+        {
+          "name": "桌面互动",
+          "params": [
+            {
+              "key": "transparentTaskbar",
+              "label": "透明任务栏",
+              "hint": "仅 Windows 桌面生效：去掉任务栏底色，保留图标、托盘和时间；关闭、切换主题或退出后恢复",
+              "options": ["关闭", "开启"],
+              "default": 1
+            },
+            {
+              "key": "clickEffects",
+              "label": "点击空白处触发效果",
+              "hint": "白天单击触发鸽群或候鸟，夜晚触发流星。框选物体后单击空白可搬移；空白框选召来飞碟，图标边缘可部分重叠。地点不合适或已有怪圈时，飞碟察看后离开。关闭点击效果后仍可框选互动",
+              "options": ["关闭", "开启"],
+              "default": 1
             }
           ]
         },
@@ -41,13 +83,70 @@
           "name": "云与草地",
           "params": [
             {
+              "key": "showIconClouds",
+              "label": "图标云层不透明度",
+              "hint": "0% 完全透明，100% 完全可见。云影始终跟随图标",
+              "min": 0,
+              "max": 1,
+              "step": 0.01,
+              "format": "percent",
+              "default": 0
+            },
+            {
+              "key": "iconLighting",
+              "label": "图标随光照变化",
+              "hint": "让图标随晨昏变色，极光和流星掠过时局部照亮图标",
+              "options": ["关闭", "开启"],
+              "default": 1
+            },
+            {
+              "key": "meteorWidth",
+              "label": "流星光晕宽度",
+              "hint": "改变流星光晕扫过草地和图标的范围",
+              "min": 0.25,
+              "max": 2,
+              "step": 0.05,
+              "default": 0.4,
+              "format": "percent"
+            },
+            {
+              "key": "meteorBrightness",
+              "label": "流星光晕亮度",
+              "hint": "同时调节草地和图标上的流星反光，0% 关闭流星反光",
+              "min": 0,
+              "max": 6,
+              "step": 0.05,
+              "default": 4.15,
+              "format": "percent"
+            },
+            {
+              "key": "auroraWidth",
+              "label": "极光光带宽度",
+              "hint": "调节极光在草地和图标上扫过的范围",
+              "min": 0.25,
+              "max": 2,
+              "step": 0.05,
+              "default": 1.4,
+              "format": "percent"
+            },
+            {
+              "key": "auroraBrightness",
+              "label": "极光亮度",
+              "hint": "同时调节草地和图标上的极光，0% 关闭极光照明",
+              "min": 0,
+              "max": 2,
+              "step": 0.05,
+              "default": 1.2,
+              "format": "percent"
+            },
+            {
               "key": "sigma",
               "label": "图标周围的云",
-              "hint": "为图标保留清晰的云团区域",
+              "hint": "调整随图标移动的云团和云影大小",
               "min": 40,
               "max": 120,
               "step": 1,
-              "default": 72,
+              "default": 40,
               "unit": "px"
             },
             {

@@ -1,6 +1,78 @@
 {
   "name": "简体中文",
   "ui": {
+    "petAdmin": "以管理员身份重启 Deskland",
+    "petAdminHint": "仅在管理员游戏无法响应键鼠时使用，需要在 Windows 提示中确认。壁纸和桌宠会一起重启。",
+    "petName_black": "经典黑猫",
+    "petName_ragdoll": "布偶猫",
+    "petName_orange_tabby": "大橘猫",
+    "petName_calico": "三花猫",
+    "petName_tuxedo": "奶牛猫",
+    "petName_siamese": "暹罗猫",
+    "petName_dafeiyu": "大肥鱼 · 鲸鱼娘",
+    "petLayout": "键盘布局",
+    "petLayout65": "65% 紧凑键盘",
+    "petLayout108": "108 键全尺寸",
+    "petOrientation": "键盘朝向",
+    "petFacingCat": "面向猫咪",
+    "petFacingViewer": "面向观众",
+    "pet_sound": "互动音效与呼噜声",
+    "pet_privacy": "密码输入保护",
+    "pet_paused": "暂停监听并隐藏",
+    "pet_mcp": "开启 MCP 皮肤扩展",
+    "petPaused": "已暂停键鼠监听并隐藏桌宠。",
+    "petCopyMcp": "复制 MCP 配置",
+    "petCopied": "已复制",
+    "petEditSkin": "定制当前角色",
+    "petSkinJson": "自定义皮肤 JSON",
+    "petSkinHint": "在当前猫咪上修改颜色、花纹与斑点。使用新 ID 可另存为新角色；MCP 客户端也可实时修改。",
+    "petSaveSkin": "保存并使用",
+    "petDeleteSkin": "删除定制或恢复原版",
+    "petInvalidJson": "请输入有效的 JSON。",
+    "petCustomName": "我的猫咪",
+    "pets": "桌宠",
+    "petsTitle": "让陪伴浮在桌面上。",
+    "petsSubtitle": "独立置顶的桌宠，切换壁纸也一直在。",
+    "petSettings": "桌宠设置",
+    "petEnabled": "显示桌宠",
+    "petHow": "拖动猫咪调整位置，轻抚头背会闭眼。快速晃动鼠标进入捕猎模式，闲置时会打瞌睡。",
+    "petHotkey": "完全穿透时，按住 Alt 可临时拖动和右键。右键桌宠打开 Deskland 设置。",
+    "petPrivacy": "密码保护默认开启。MCP 扩展默认关闭；开启后可让 AI 客户端定制皮肤。开机启动使用右上角的 Deskland 开关。",
+    "petChoose": "选择",
+    "petChosen": "已选择",
+    "petCoat0": "经典黑猫",
+    "petCoat1": "暹罗猫",
+    "petCoat2": "美短",
+    "petCoat3": "橘白猫",
+    "petKeyboard": "键盘配色",
+    "petKeyboard0": "奶白暖黄",
+    "petKeyboard1": "暗夜极客黑",
+    "petKeyboard2": "复古奶油灰",
+    "petEyes": "瞳色",
+    "petEyes0": "荧光黄绿",
+    "petEyes1": "宝石蓝",
+    "petEyes2": "琥珀金",
+    "petEyes3": "冰晶浅蓝",
+    "petEyes4": "柔和琥珀",
+    "petEyes5": "淡金青绿",
+    "petSize": "桌宠大小",
+    "pet_topmost": "置顶显示",
+    "pet_through": "完全鼠标穿透",
+    "pet_badges": "按键气泡",
+    "pet_foot": "第三只脚彩蛋",
+    "pet_petting": "摸头与摸背互动",
+    "petStats": "今日击键 {total} · {kpm} KPM",
+    "petDemo": "演示打字",
+    "petPosition": "重置位置",
+    "petReset": "恢复默认",
+    "petBrowser": "浏览器仅预览设置；独立桌宠在 Windows 程序中运行。",
+    "petOff": "桌宠已关闭，默认选择经典黑猫。",
+    "petRunning": "新版桌宠正在独立运行。",
+    "petInputUnavailable": "桌宠已显示，但键鼠输入尚未连接。",
+    "petStarting": "正在启动桌宠…",
+    "petError": "桌宠未能运行。请关闭再开启；若仍失败，请重新构建主程序。",
+    "taskbarError": "无法修改此 Windows 任务栏，已关闭透明任务栏。请检查是否运行了其他任务栏美化工具。",
+    "tryMeteor": "试放一次",
     "adaptive": "自适应",
     "themes": "主题",
     "collectionTitle": "选一片风景。",
@@ -130,11 +202,63 @@
     "worldPhase_night": "青蓝月夜",
     "worldPhase_dawn": "粉紫黎明",
     "worldPhase_sunrise": "金色晨光",
-    "worldPhase_morning": "清新上午",
-    "worldPhase_noon": "翠绿正午",
+    "worldPhase_morning": "翠绿上午",
+    "worldPhase_noon": "烈阳正午",
     "worldPhase_afternoon": "金绿午后",
     "worldPhase_sunset": "红霞夕照",
     "worldPhase_blue": "蓝调时刻"
+  },
+  "themes": {
+    "pastoral": {
+      "groups": ["省电", "世界时间", "桌面互动", "云与草地"],
+      "params": {
+        "transparentTaskbar": {
+          "label": "透明任务栏",
+          "hint": "仅 Windows 桌面生效：去掉任务栏底色，保留图标、托盘和时间；关闭、切换主题或退出后恢复",
+          "options": ["关闭", "开启"]
+        },
+        "clickEffects": {
+          "label": "点击空白处触发效果",
+          "hint": "白天单击触发鸽群或候鸟，夜晚触发流星。框选物体后单击空白可搬移；空白框选召来飞碟，图标边缘可部分重叠。地点不合适或已有怪圈时，飞碟察看后离开。关闭点击效果后仍可框选互动",
+          "options": ["关闭", "开启"]
+        },
+        "showIconClouds": {
+          "label": "图标云层不透明度",
+          "hint": "0% 完全透明，100% 完全可见。云影始终跟随图标"
+        },
+        "meteorWidth": {
+          "label": "流星光晕宽度",
+          "hint": "改变流星光晕扫过草地和图标的范围"
+        },
+        "meteorBrightness": {
+          "label": "流星光晕亮度",
+          "hint": "同时调节草地和图标上的流星反光，0% 关闭流星反光"
+        },
+        "auroraWidth": {
+          "label": "极光光带宽度",
+          "hint": "调节极光在草地和图标上扫过的范围"
+        },
+        "auroraBrightness": {
+          "label": "极光亮度",
+          "hint": "同时调节草地和图标上的极光，0% 关闭极光照明"
+        },
+        "iconLighting": {
+          "label": "图标随光照变化",
+          "hint": "让图标随晨昏变色，极光和流星掠过时局部照亮图标",
+          "options": ["关闭", "开启"]
+        },
+        "pauseWhenCovered": {
+          "label": "最大化或全屏时暂停壁纸",
+          "hint": "前台窗口覆盖桌面时暂停 NPC 和壁纸动画，返回桌面后恢复",
+          "options": ["关闭", "开启"]
+        },
+        "batterySaver": {
+          "label": "电池省电模式",
+          "hint": "默认开启。未接通电源时保持静止并停止动画循环，接通电源后恢复；分享动画时临时播放",
+          "options": ["关闭", "开启"]
+        }
+      }
+    }
   },
   "host": {
     "traySettings": "设置…",

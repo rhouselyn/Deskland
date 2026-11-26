@@ -1,27 +1,32 @@
 // 昼夜配色与太阳数据由桌面、预览和时间滑杆共用。
 (function(root){
   'use strict';
+  const defaults={location:{lat:22.6,lon:114.0,zone:'Asia/Shanghai'},seed:435975,
+    realTime:0,fixedTime:1049,batterySaver:1,pauseWhenCovered:0,transparentTaskbar:1,
+    sigma:40,cover:.3,flow:1,adaptive:1,showIconClouds:0,iconLighting:1,clickEffects:1,
+    meteorWidth:.4,meteorBrightness:4.15,auroraWidth:1.4,auroraBrightness:1.2};
   const sun=typeof module!=='undefined'&&module.exports?require('./vendor/suncalc.js'):root.SunCalc;
   const rgb=hex=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);
   const colors=['grassLight','grassMid','grassDeep','ink','shadow','cloudHi','cloudBody','cloudShade','ambient','accent'];
   const rows={
-    night:['#387c96','#255875','#1b3e65','#183955','#61769c','#c1e5ff','#6388bd','#40558d','#819dce','#345f9f',1,.42],
-    dawn:['#94aca0','#658e91','#526b86','#39536b','#8276a0','#ffd3bb','#c3b3d6','#8985b3','#ccbedb','#ae9fce',.55,.56],
-    sunrise:['#e0dc73','#98bf51','#608d4b','#53663a','#8b7d9e','#fff2ba','#ffcf9f','#d291a7','#ffe6b8','#efba65',.05,.84],
-    morning:['#c0df65','#81c14c','#519744','#315d31','#688b6a','#fffdea','#f4f5e8','#bacfdb','#fffdf1','#a6cf5d',0,.94],
-    noon:['#b9df5a','#71bb45','#3e944b','#2a5f36','#517d6f','#fffff3','#eef5ed','#b1ccd9','#fffef7','#65b94b',0,1],
-    afternoon:['#dcda6c','#a0bd50','#6e9545','#596f36','#7b826b','#fff3cc','#ffe5ba','#cfbabb','#fff0c9','#d3c664',0,.94],
-    sunset:['#efbd76','#b0a658','#788951','#66533f','#927395','#fff0b9','#ffa18f','#c775a0','#ffb8a0','#ec8b75',.16,.84],
-    blue:['#5488b2','#3a6698','#354b83','#2d3e69','#7773a4','#f4bdd8','#8a91cf','#6068a4','#b1b4e6','#7b87c6',.74,.52]
+    // 草地高光、中色、暗部、草纹、投影环境色；云边、云体、背光；村庄光色、色带；夜光、阴影、斜射光。
+    night:['#395562','#263e4e','#233341','#192b36','#393362','#afd8dc','#5975a8','#3e396a','#809ac3','#294f86',1,.71,.14],
+    dawn:['#9dceb1','#598f9e','#58649b','#405e79','#666498','#ffd0a6','#c6a8dc','#907bbb','#dfc7df','#c59ecb',.49,.69,.61],
+    sunrise:['#f4e579','#98be54','#5f916b','#536c48','#76688e','#fff0a2','#ffc582','#d08da5','#ffe5b0','#f7bd65',.06,.9,.86],
+    morning:['#b6e65c','#54b64e','#238451','#275e3c','#377555','#fffef2','#f1f5e5','#a9ced3','#fffbea','#59bf60',0,.94,.04],
+    noon:['#f3f384','#a3d455','#378d59','#426d38','#396e66','#fffff8','#fffde7','#9dbfc9','#fff6dc','#d5e668',0,1,.02],
+    afternoon:['#e9d76f','#a2b84c','#648d52','#716a37','#82715b','#fff2cb','#ffe2ac','#c7adb0','#ffe5bf','#d4be62',0,.85,.48],
+    sunset:['#ff905b','#b19e4d','#62835b','#704e48','#834c75','#ffd493','#ff695c','#a64575','#ffb595','#ee7960',.21,.95,1],
+    blue:['#548aab','#386a9b','#444780','#303f71','#514583','#ffafd1','#818bcd','#4e5296','#bfc3ef','#777fb9',.76,.8,.51]
   };
-  const palettes=Object.fromEntries(Object.entries(rows).map(([key,row])=>[key,{...Object.fromEntries(colors.map((name,i)=>[name,rgb(row[i])])),night:row[10],shade:row[11],phase:key}]));
+  const palettes=Object.fromEntries(Object.entries(rows).map(([key,row])=>[key,{...Object.fromEntries(colors.map((name,i)=>[name,rgb(row[i])])),night:row[10],shade:row[11],rake:row[12],highSun:key==='noon'?1:0,phase:key}]));
   function blend(out,target,amount){
     for(const key of colors){out[key] ||= [...target[key]];for(let i=0;i<3;i++)out[key][i]+=(target[key][i]-out[key][i])*amount;}
-    for(const key of ['night','shade'])out[key]=(out[key]??target[key])+(target[key]-(out[key]??target[key]))*amount;
+    for(const key of ['night','shade','rake','highSun'])out[key]=(out[key]??target[key])+(target[key]-(out[key]??target[key]))*amount;
     out.phase=target.phase;return out;
   }
   function palette(altitude,setting,progress=.5){
-    const points=altitude>=12?[[0,'morning'],[.25,'morning'],[.46,'noon'],[.56,'noon'],[.82,'afternoon'],[1,'afternoon']]:setting?[[-90,'night'],[-10,'night'],[-6,'blue'],[-2,'blue'],[2,'sunset'],[8,'sunset'],[12,'afternoon']]:[[-90,'night'],[-10,'night'],[-6,'dawn'],[-1,'sunrise'],[4,'sunrise'],[12,'morning']];
+    const points=altitude>=12?[[0,'morning'],[.36,'morning'],[.47,'noon'],[.55,'noon'],[.82,'afternoon'],[1,'afternoon']]:setting?[[-90,'night'],[-10,'night'],[-6,'blue'],[-2,'blue'],[2,'sunset'],[8,'sunset'],[12,'afternoon']]:[[-90,'night'],[-10,'night'],[-6,'dawn'],[-1,'sunrise'],[4,'sunrise'],[12,'morning']];
     const v=altitude>=12?progress:altitude;
     let i=1;while(i<points.length-1&&v>points[i][0])i++;
     const [a,ka]=points[i-1],[b,kb]=points[i],t=Math.max(0,Math.min(1,(v-a)/(b-a))),s=t*t*(3-2*t);
@@ -32,7 +37,7 @@
   }
   function solar(date,location){
     const valid=location&&Number.isFinite(location.lat)&&Number.isFinite(location.lon)&&Math.abs(location.lat)<=90&&Math.abs(location.lon)<=180;
-    if(!valid)return {altitude:40,azimuth:0,setting:false,progress:.5,day:'unlocated',light:[-.6,-.8],shadow:[115,156],located:false,palette:palette(40,false,.5)};
+    if(!valid)return {altitude:40,azimuth:0,setting:false,progress:.5,day:'unlocated',minute:date.getHours()*60+date.getMinutes(),light:[-.6,-.8],shadow:[26,35],located:false,palette:palette(40,false,.5)};
     const p=sun.getPosition(date,location.lat,location.lon),next=sun.getPosition(new Date(+date+60000),location.lat,location.lon);
     const altitude=p.altitude*180/Math.PI,setting=next.altitude<p.altitude;
     // 以地点当天的中午求晨昏，避免接近午夜时取到相邻的太阳日。
@@ -42,9 +47,9 @@
     const day=parts.year+'-'+parts.month+'-'+parts.day,minute=Number(parts.hour)*60+Number(parts.minute);
     const noon=new Date(+date+(720-minute)*60000),times=sun.getTimes(noon,location.lat,location.lon),rise=+times.sunrise,set=+times.sunset;
     const progress=Number.isFinite(rise)&&Number.isFinite(set)?Math.max(0,Math.min(1,(date-rise)/(set-rise))):minute/1440;
-    const paint=palette(altitude,setting,progress),dx=Math.sin(p.azimuth),dy=-Math.cos(p.azimuth),length=Math.min(190,38/Math.max(.18,Math.sin(Math.max(.05,p.altitude))));
+    const paint=palette(altitude,setting,progress),dx=Math.sin(p.azimuth),dy=-Math.cos(p.azimuth),length=Math.min(190,38/Math.max(.18,Math.sin(Math.max(.05,p.altitude))))*(1-.27*paint.highSun);
     const moon=paint.night;
     return {altitude,azimuth:p.azimuth,setting,progress,day,minute,light:[dx*(1-moon)-.6*moon,dy*(1-moon)-.8*moon],shadow:[-dx*length*(1-moon)+40*moon,-dy*length*(1-moon)+54*moon],located:true,palette:paint,sunrise:Number.isFinite(rise)?rise:null,sunset:Number.isFinite(set)?set:null,noon:+times.solarNoon,dawn:Number.isFinite(+times.dawn)?+times.dawn:null,dusk:Number.isFinite(+times.dusk)?+times.dusk:null};
   }
-  const api={palette,blend,solar};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PastoralLight=api;
+  const api={defaults,palette,blend,solar};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.PastoralLight=api;
 })(globalThis);

@@ -36,9 +36,9 @@ $WebView2Bootstrapper = [IO.Path]::GetFullPath($WebView2Bootstrapper)
 
 # A fixed source list prevents other editions or private working files entering this package.
 $sources = @('.gitattributes', '.gitignore', 'AGENTS.md', 'LICENSE', 'NOTICE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md',
-    'host\DesktopHost.cs', 'host\Themes.cs', 'host\PastoralStore.cs', 'host\DesklandPreview.ico', 'host\README.md', 'host\app.manifest', 'host\build.ps1', 'host\inspect.ps1',
-    'tools\test-pastoral.cjs', 'tools\build-installer.ps1', 'tools\installer.nsi', 'tools\version.json')
-$themeFiles = @('pastoral.html', 'pastoral-world.js', 'pastoral-scene.js', 'pastoral-light.js', 'pastoral-settings.js', 'vendor\suncalc.js', 'vendor\suncalc-LICENSE.txt', 'flat.html', 'meadow.html', 'autumn.html', 'meadow-scene.js', 'settings.html', 'thumbs-data.js', 'share.js', 'serve.mjs', 'themes.json', 'beach-palms.js', 'meadow-boy.js', 'meadow-cat.js',
+    'host\DesktopHost.cs', 'host\DesktopTaskbar.cs', 'host\DesktopIconLight.cs', 'host\Themes.cs', 'host\PastoralStore.cs', 'host\DesklandPreview.ico', 'host\README.md', 'host\app.manifest', 'host\build.ps1', 'host\inspect.ps1',
+    'tools\test-pastoral.cjs', 'tools\test-taskbar.cjs', 'tools\build-installer.ps1', 'tools\installer.nsi', 'tools\version.json')
+$themeFiles = @('pastoral.html', 'pastoral-world.js', 'pastoral-flock.js', 'pastoral-models.js', 'pastoral-scene.js', 'pastoral-light.js', 'pastoral-settings.js', 'vendor\suncalc.js', 'vendor\suncalc-LICENSE.txt', 'flat.html', 'meadow.html', 'autumn.html', 'meadow-scene.js', 'settings.html', 'thumbs-data.js', 'share.js', 'serve.mjs', 'themes.json', 'beach-palms.js', 'meadow-boy.js', 'meadow-cat.js',
     'i18n\en.json', 'i18n\zh-CN.json', 'thumbs\beach.webp', 'thumbs\meadow.webp',
     'assets\beach-coconut-palm-v2.png', 'assets\beach-coconut-palm-curved.png', 'assets\beach-coconut-palm-airy.png', 'assets\beach-coconut-palm-windswept.png', 'assets\beach-coconut-palm-arch.png',
     'assets\meadow-black-kitten.png', 'assets\meadow-kite-boy-level-face.png', 'assets\meadow-kite-boy-diagonal-run.png')
@@ -59,6 +59,14 @@ foreach ($theme in $themes) {
     $thumbFile = 'thumbs\' + $thumbName
     if ($themeFiles -notcontains $thumbFile) { $themeFiles += $thumbFile }
 }
+$themeFiles += @('pastoral-village.js','pastoral-selection.js','pastoral-crop-circle.js')
+$themeFiles += @('pets.js','pets.css','pet-preview.js')
+$sources += @('host\DesktopPet.cs','tools\test-kurocat.cjs','tools\test-pet-settings.cs','tools\test-pet-runtime.ps1','tools\test-pet-render.mjs','tools\test-pet-animation.cjs','tools\test-pet-lifecycle.cjs')
+$sources += @('tools\test-pigeon-flight.cjs','tools\test-flock-relocation.cjs','tools\test-pastoral-selection.cjs')
+$sources += 'tools\test-pastoral-crop-circle.cjs'
+$sources += @('tools\test-icon-light.cs','tools\test-pastoral-icon-selection.cjs')
+$sources += @('host\KuroCat\build.ps1','host\KuroCat\build-preview.mjs','host\KuroCat\preview.ts')
+$sources += Get-ChildItem -LiteralPath (Join-Path $root 'third_party\KuroCat') -File -Recurse -Force | Where-Object { $_.FullName -notmatch '\\(node_modules|target|target-win7|dist|dist-web|\.git)\\' } | ForEach-Object { $_.FullName.Substring($root.Length + 1) }
 $sources += $themeFiles | ForEach-Object { 'prototype\' + $_ }
 $sourceStage = Join-Path $payload 'source-stage'
 foreach ($file in $sources) {
@@ -69,8 +77,9 @@ foreach ($file in $sources) {
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($sourceStage, (Join-Path $payload 'Deskland-source.zip'))
 # Only program data is installed. The accompanying ZIP contains the exact corresponding source.
-$runtimeFiles = @('host\bin\Deskland.exe', 'host\bin\DesklandPreview.ico', 'host\bin\Microsoft.Web.WebView2.Core.dll', 'host\bin\Microsoft.Web.WebView2.WinForms.dll', 'host\bin\WebView2Loader.dll')
-$installFiles = @('LICENSE', 'NOTICE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md') + @($themeFiles | Where-Object { $_ -ne 'serve.mjs' } | ForEach-Object { 'prototype\' + $_ }) + $runtimeFiles
+$runtimeFiles = @('host\bin\Deskland.exe', 'host\bin\DesklandPreview.ico', 'host\bin\Microsoft.Web.WebView2.Core.dll', 'host\bin\Microsoft.Web.WebView2.WinForms.dll', 'host\bin\WebView2Loader.dll', 'host\bin\ExplorerTAP-2026.2.dll')
+$runtimeFiles += 'host\bin\DesklandPet.exe'
+$installFiles = @('third_party\KuroCat\LICENSE','third_party\KuroCat\src\assets\dafeiyu\LICENSE-MIT.txt','LICENSE', 'NOTICE', 'README.md', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md') + @($themeFiles | Where-Object { $_ -ne 'serve.mjs' } | ForEach-Object { 'prototype\' + $_ }) + $runtimeFiles
 foreach ($file in $installFiles) {
     $target = Join-Path $payload $file
     New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
@@ -85,8 +94,10 @@ foreach ($file in $installFiles) {
     if ($file -match '["$\r\n]') { throw 'Unsafe package path' }
     $dir = Split-Path $file
     $fileLines += 'SetOutPath "$INSTDIR' + $(if ($dir) { '\' + $dir } else { '' }) + '"'
+    if ($file -eq 'host\bin\ExplorerTAP-2026.2.dll') { $fileLines += 'SetOverwrite off' }
     $fileLines += 'File "' + (Join-Path $payload $file) + '"'
-    $deleteLines += 'Delete "$INSTDIR\' + $file + '"'
+    if ($file -eq 'host\bin\ExplorerTAP-2026.2.dll') { $fileLines += 'SetOverwrite on' }
+    $deleteLines += 'Delete ' + $(if ($file -eq 'host\bin\ExplorerTAP-2026.2.dll') { '/REBOOTOK ' } else { '' }) + '"$INSTDIR\' + $file + '"'
     while ($dir) { $directories[$dir] = $true; $dir = Split-Path $dir }
 }
 $deleteLines += $directories.Keys | Sort-Object Length -Descending | ForEach-Object { 'RMDir "$INSTDIR\' + $_ + '"' }

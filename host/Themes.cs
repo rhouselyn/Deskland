@@ -32,6 +32,22 @@ static class Themes
         return theme == null ? null : theme["page"] as string;
     }
 
+    public static Dictionary<string, object> DefaultsFor(string pageDir, string id)
+    {
+        var result = new Dictionary<string, object>();
+        var theme = Find(pageDir, id);
+        if (theme == null) return result;
+        object value;
+        if (theme.TryGetValue("defaults", out value) && value is Dictionary<string, object>)
+            foreach (var pair in (Dictionary<string, object>)value) result[pair.Key] = pair.Value;
+        if (theme.ContainsKey("adaptive") && Equals(theme["adaptive"], true)) result["adaptive"] = 1;
+        if (theme.TryGetValue("groups", out value))
+            foreach (Dictionary<string, object> group in (System.Collections.IEnumerable)value)
+                foreach (Dictionary<string, object> param in (System.Collections.IEnumerable)group["params"])
+                    result[(string)param["key"]] = param["default"];
+        return result;
+    }
+
     public static string ProductFor(string pageDir, string id)
     {
         var theme = Find(pageDir, id);

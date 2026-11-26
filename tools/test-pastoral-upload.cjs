@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../prototype/pastoral-scene.js'),'utf8');
+const start=source.indexOf('  function uploadCanvas('),end=source.indexOf('\n  let location=',start);
+assert(start>=0,'world and light textures need reusable upload storage');
+let allocations=0,updates=0;
+const gl={bindTexture(){},texImage2D(){allocations++;},texSubImage2D(){updates++;}};
+const context=vm.createContext({gl});
+vm.runInContext('const textureSizes=new Map();'+source.slice(start,end),context);
+context.texture={};context.canvas={width:1200,height:800};
+vm.runInContext('for(let i=0;i<100;i++)uploadCanvas(texture,canvas)',context);
+assert.equal(allocations,1);assert.equal(updates,99);
+context.canvas.width=900;vm.runInContext('uploadCanvas(texture,canvas)',context);
+assert.equal(allocations,2,'resizing must allocate matching texture storage');
+console.log('PASS: stable-size frames update existing texture; resize reallocates once');

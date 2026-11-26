@@ -1,6 +1,78 @@
 {
   "name": "English",
   "ui": {
+    "petAdmin": "Restart Deskland as administrator",
+    "petAdminHint": "For games running as administrator. Windows confirmation is required; wallpaper and pet restart together.",
+    "petName_black": "Classic black",
+    "petName_ragdoll": "Ragdoll",
+    "petName_orange_tabby": "Orange tabby",
+    "petName_calico": "Calico",
+    "petName_tuxedo": "Tuxedo",
+    "petName_siamese": "Siamese",
+    "petName_dafeiyu": "BigFish",
+    "petLayout": "Keyboard layout",
+    "petLayout65": "65% compact",
+    "petLayout108": "108 keys",
+    "petOrientation": "Keyboard direction",
+    "petFacingCat": "Facing the cat",
+    "petFacingViewer": "Facing the viewer",
+    "pet_sound": "Sound and purring",
+    "pet_privacy": "Password input guard",
+    "pet_paused": "Pause input and hide",
+    "pet_mcp": "Enable MCP skin tools",
+    "petPaused": "Input listening is paused and the pet is hidden.",
+    "petCopyMcp": "Copy MCP config",
+    "petCopied": "Copied",
+    "petEditSkin": "Customize this pet",
+    "petSkinJson": "Custom skin JSON",
+    "petSkinHint": "Edit colors, patterns and spots. A new ID creates a separate pet; connected MCP clients can also edit skins live.",
+    "petSaveSkin": "Save and use",
+    "petDeleteSkin": "Delete custom / restore original",
+    "petInvalidJson": "Enter valid JSON.",
+    "petCustomName": "My cat",
+    "pets": "Pets",
+    "petsTitle": "A companion, above your desktop.",
+    "petsSubtitle": "An independent desktop pet that stays with you across wallpapers.",
+    "petSettings": "Pet settings",
+    "petEnabled": "Show pet",
+    "petHow": "Drag the cat to move it. Stroke its head or back to make it close its eyes. Fast cursor movements trigger hunting eyes; idle cats get sleepy.",
+    "petHotkey": "Hold Alt to drag or right-click during full click-through. Right-click the pet to open Deskland settings.",
+    "petPrivacy": "Password guard is on by default. MCP tools are off by default; enable them to customize skins with an AI client. Use the Deskland startup switch above.",
+    "petChoose": "Select",
+    "petChosen": "Selected",
+    "petCoat0": "Classic black",
+    "petCoat1": "Siamese",
+    "petCoat2": "Shorthair",
+    "petCoat3": "Orange and white",
+    "petKeyboard": "Keyboard colors",
+    "petKeyboard0": "Milk and amber",
+    "petKeyboard1": "Midnight hacker",
+    "petKeyboard2": "Retro cream",
+    "petEyes": "Eye color",
+    "petEyes0": "Neon chartreuse",
+    "petEyes1": "Sapphire blue",
+    "petEyes2": "Warm amber",
+    "petEyes3": "Ice cyan",
+    "petEyes4": "Soft amber",
+    "petEyes5": "Hazel",
+    "petSize": "Pet size",
+    "pet_topmost": "Always on top",
+    "pet_through": "Full click-through",
+    "pet_badges": "Key bubbles",
+    "pet_foot": "Third-paw Easter egg",
+    "pet_petting": "Head and back petting",
+    "petStats": "Today: {total} keys · {kpm} KPM",
+    "petDemo": "Typing demo",
+    "petPosition": "Reset position",
+    "petReset": "Restore defaults",
+    "petBrowser": "Browser settings preview only. The independent pet runs in the Windows app.",
+    "petOff": "Pet is off. Classic black is selected by default.",
+    "petRunning": "The new pet is running independently.",
+    "petInputUnavailable": "Pet is visible, but keyboard and mouse input is unavailable.",
+    "petStarting": "Starting pet…",
+    "petError": "The pet could not run. Turn it off and on; rebuild the app if this continues.",
+    "taskbarError": "This Windows taskbar could not be changed. Transparent taskbar has been turned off. Check whether another taskbar customization tool is running.",
+    "tryMeteor": "Try once",
     "adaptive": "Adaptive",
     "themes": "Themes",
     "collectionTitle": "Find your scenery.",
@@ -130,8 +202,8 @@
     "worldPhase_night": "Moonlit blue",
     "worldPhase_dawn": "Rosy dawn",
     "worldPhase_sunrise": "Golden sunrise",
-    "worldPhase_morning": "Fresh morning",
-    "worldPhase_noon": "Emerald noon",
+    "worldPhase_morning": "Emerald morning",
+    "worldPhase_noon": "High noon",
     "worldPhase_afternoon": "Golden afternoon",
     "worldPhase_sunset": "Coral sunset",
     "worldPhase_blue": "Blue hour"
@@ -617,15 +689,62 @@
     },
     "pastoral": {
       "name": "Meadow Village",
-      "desc": "A living village with local sunrise and sunset, independent cows, families and torchlit evenings",
+      "desc": "Family dogs play in the yards, sparrows tend their rooftop nests, and migrating birds occasionally pass overhead. Cattle graze while a border collie brings the sheep home at dusk.",
       "groups": [
+        "Power saving",
         "World time",
+        "Desktop interaction",
         "Clouds and grass"
       ],
       "params": {
+        "transparentTaskbar": {
+          "label": "Transparent taskbar",
+          "hint": "Windows desktop only: remove the background, keeping icons, tray and clock. Restored when turned off, switching themes or exiting",
+          "options": ["Off", "On"]
+        },
+        "clickEffects": {
+          "label": "Effects on empty-space clicks",
+          "hint": "Click empty space for birds by day or meteors at night. Select objects and click to move them. An empty marquee calls a saucer and may partly overlap icon edges. The saucer inspects unsuitable sites or an existing circle and leaves. Marquee interactions remain available when click effects are off.",
+          "options": ["Off", "On"]
+        },
+        "showIconClouds": {
+          "label": "Icon cloud opacity",
+          "hint": "0% hides the clouds and 100% fully shows them. Their shadows always follow the icons"
+        },
+        "meteorWidth": {
+          "label": "Meteor glow width",
+          "hint": "Adjust how widely meteor light spreads across the meadow and icons"
+        },
+        "meteorBrightness": {
+          "label": "Meteor glow brightness",
+          "hint": "Adjust reflected meteor light on the meadow and icons. At 0% the glow is off"
+        },
+        "auroraWidth": {
+          "label": "Aurora band width",
+          "hint": "Adjust how widely the aurora spreads across the meadow and icons"
+        },
+        "auroraBrightness": {
+          "label": "Aurora brightness",
+          "hint": "Adjust aurora light on the meadow and icons. At 0% the aurora light is off"
+        },
+        "iconLighting": {
+          "label": "Light desktop icons",
+          "hint": "Light icons with daylight, dusk, passing auroras and meteor trails",
+          "options": ["Off", "On"]
+        },
+        "pauseWhenCovered": {
+          "label": "Pause wallpaper when covered",
+          "hint": "Pause NPCs and wallpaper animation when the foreground window is maximized or fullscreen. Resume when you return to the desktop",
+          "options": ["Off", "On"]
+        },
+        "batterySaver": {
+          "label": "Battery saver",
+          "hint": "On by default. Freeze the scene and stop animation loops when unplugged; resume on AC power. Recording temporarily plays the scene",
+          "options": ["Off", "On"]
+        },
         "sigma": {
           "label": "Clouds around icons",
-          "hint": "Keep your desktop icons clear",
+          "hint": "Adjust the size of the clouds and shadows that follow icons",
           "unit": "px"
         },
         "cover": {

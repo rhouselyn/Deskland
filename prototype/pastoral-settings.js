@@ -1,4 +1,4 @@
-// 地点只保存在本机；定位失败时明确显示状态，不把示例城市冒充当前位置。
+// 默认使用城市级参考地点，用户定位与手动修改保存在本机。
 let pastoralLocateAttempted=false;
 let pastoralBandKey='';
 function pastoralSettingsMarkup(){return state.theme==='pastoral'?`<div class="group" id="pastoralSettings"><h3>${t('worldLocation')}</h3><p class="hint" id="pastoralLocationStatus" role="status"></p><button class="ghost-btn" id="worldLocate">${t('worldLocate')}</button><form id="worldLocationForm" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px"><label>${t('worldLatitude')}<input id="worldLat" type="number" min="-90" max="90" step="any" required style="width:100%"></label><label>${t('worldLongitude')}<input id="worldLon" type="number" min="-180" max="180" step="any" required style="width:100%"></label><label style="grid-column:1/-1">${t('worldTimezone')}<input id="worldZone" placeholder="Asia/Shanghai" style="width:100%"></label><button class="ghost-btn" type="submit" style="grid-column:1/-1">${t('worldSaveLocation')}</button></form></div>`:'';}
@@ -6,7 +6,7 @@ function renderPastoralSettings(){
   syncPastoralClock();
   const el=document.getElementById('pastoralSettings');if(!el)return;
   el.hidden=state.theme!=='pastoral';if(el.hidden)return;
-  const loc=state.params.pastoral?.location;
+  const loc=valuesOf(themeById('pastoral')).location;
   document.getElementById('pastoralLocationStatus').textContent=loc?t('worldLocationSet',{lat:loc.lat.toFixed(3),lon:loc.lon.toFixed(3)}):t('worldLocationMissing');
   if(loc){document.getElementById('worldLat').value=loc.lat;document.getElementById('worldLon').value=loc.lon;document.getElementById('worldZone').value=loc.zone||Intl.DateTimeFormat().resolvedOptions().timeZone;}
   if(!loc&&!pastoralLocateAttempted){pastoralLocateAttempted=true;setTimeout(locatePastoral,500);}
@@ -21,7 +21,7 @@ function syncPastoralClock(){
   slider.setAttribute('aria-valuetext',fmt(paramOf('fixedTime'),+slider.value));
   let strip=document.getElementById('worldTimeStrip');
   if(!strip){strip=document.createElement('div');strip.id='worldTimeStrip';strip.innerHTML='<p id="worldTimeStatus" role="status" style="font-size:12px;margin:10px 0 8px"></p><div id="worldTimeBand" style="height:10px;position:relative;border-radius:5px"></div><p id="worldSunTimes" style="font-size:11px;margin:8px 0;opacity:.75"></p>';document.getElementById('p-fixedTime').after(strip);pastoralBandKey='';}
-  const loc=state.params.pastoral?.location,now=PastoralCore.worldDate(new Date(),valuesOf(themeById('pastoral')),loc?.zone),solar=PastoralLight.solar(now,loc);
+  const loc=valuesOf(themeById('pastoral')).location,now=PastoralCore.worldDate(new Date(),valuesOf(themeById('pastoral')),loc?.zone),solar=PastoralLight.solar(now,loc);
   const minute=solar.minute??now.getHours()*60+now.getMinutes();
   const caption=(live?t('worldTimeLive'):t('worldTimeFixed'))+' · '+fmt(paramOf('fixedTime'),minute)+' · '+t('worldPhase_'+solar.palette.phase);
   const status=document.getElementById('worldTimeStatus');if(status.textContent!==caption)status.textContent=caption;

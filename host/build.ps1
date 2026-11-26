@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $lib = Join-Path $root 'lib'
 $bin = Join-Path $root 'bin'
+& (Join-Path $root 'KuroCat\build.ps1')
 New-Item -ItemType Directory -Force $lib, $bin | Out-Null
 $version = '1.0.4191.47'
 $assemblies = @(
@@ -39,6 +40,18 @@ if ($missing.Count -gt 0) {
     }
 }
 $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+# Only the background helper is used; no TranslucentTB app or updater is installed.
+$tapArchive = Join-Path $lib 'TranslucentTB-portable-x64.zip'
+$tapHash = '0DBE8E0255C20E131CDE536DCD0AE490D45989A7D360E26D0150DFF1922AC420'
+if (-not (Test-Path -LiteralPath $tapArchive)) {
+    Invoke-WebRequest 'https://github.com/TranslucentTB/TranslucentTB/releases/download/2026.2/TranslucentTB-portable-x64.zip' -OutFile $tapArchive -UseBasicParsing
+}
+if ((Get-FileHash -LiteralPath $tapArchive -Algorithm SHA256).Hash -ne $tapHash) { throw 'ExplorerTAP archive checksum mismatch' }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$tapPackage = [IO.Compression.ZipFile]::OpenRead($tapArchive)
+try {
+    [IO.Compression.ZipFileExtensions]::ExtractToFile($tapPackage.GetEntry('ExplorerTAP.dll'), (Join-Path $lib 'ExplorerTAP.dll'), $true)
+} finally { $tapPackage.Dispose() }
 if (-not (Test-Path -LiteralPath $csc)) { throw '找不到 .NET Framework C# 编译器，请在 64 位 Windows 上构建。' }
 $appVersion = (Get-Content -LiteralPath (Join-Path $root '..\tools\version.json') -Raw | ConvertFrom-Json).version
 if ($appVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid application version' }
@@ -57,8 +70,14 @@ using System.Reflection;
     /out:"$bin\Deskland.exe" `
     /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Web.Extensions.dll `
     /r:"$lib\Microsoft.Web.WebView2.Core.dll" /r:"$lib\Microsoft.Web.WebView2.WinForms.dll" `
-    "$root\DesktopHost.cs" "$root\Themes.cs" "$root\PastoralStore.cs" "$versionSource"
+    "$root\DesktopTaskbar.cs" "$root\DesktopIconLight.cs" "$root\DesktopPet.cs" "$root\DesktopHost.cs" "$root\Themes.cs" "$root\PastoralStore.cs" "$versionSource"
 if ($LASTEXITCODE -ne 0) { throw '编译失败' }
 foreach ($assembly in $assemblies) { Copy-Item -LiteralPath (Join-Path $lib $assembly.Name) -Destination $bin -Force }
+$tapTarget = Join-Path $bin 'ExplorerTAP-2026.2.dll'
+# Explorer pins this DLL until logout. Keep each version immutable and skip identical copies.
+if (-not (Test-Path -LiteralPath $tapTarget) -or
+    (Get-FileHash -LiteralPath $tapTarget).Hash -ne (Get-FileHash -LiteralPath (Join-Path $lib 'ExplorerTAP.dll')).Hash) {
+    Copy-Item -LiteralPath (Join-Path $lib 'ExplorerTAP.dll') -Destination $tapTarget -Force
+}
 Copy-Item -LiteralPath (Join-Path $root 'DesklandPreview.ico') -Destination (Join-Path $bin 'DesklandPreview.ico') -Force
 Write-Host "编译完成：$bin\Deskland.exe"

@@ -20,9 +20,13 @@ Meadow, Beach and Autumn Meadow are included in Preview. Maldives is shown as a 
 
 Autumn Meadow adds wheat-gold grass, warm clouds and autumn shadows, with independent saved settings.
 
-Meadow Village adds independent cows and families, safe house placement, children’s games, local sunrise/sunset and torchlit nights. Eight daylight palettes distinguish rosy dawn, emerald noon, coral sunset, blue hour and silver-blue moonlight, with warm windows and fireflies. On first use it requests your location; coordinates and world saves stay on this PC. If location is unavailable, enter coordinates and an IANA time zone in Settings.
+A border collie takes 54 adult sheep and 26 lambs out at 07:00 local time, moves to a distant reachable patch of grass after about 150 seconds of grazing and brings them back at 18:00. When the flock packs tightly, the collie can run across the sheep’s backs to change sides. Meadow Village also has independent cows and families, safe house placement, children’s games, local sunrise/sunset and torchlit nights. Eight daylight palettes distinguish rosy dawn, emerald mornings, sun-bleached noon highlights, coral sunset, blue hour and silver-blue moonlight, with warm windows, 18 fireflies and a soft auroral glow that shifts across the grass, roofs and clouds throughout the night. Adults and children sometimes lie on the grass to watch the lights or rest there by day. Single meteors, pairs and occasional showers gradually cast broad glows that briefly light nearby icons. About one in five is white, with blue-green, icy blue, pink-violet and amber making up the rest. Icon clouds are hidden by default while their shadows follow the icons. In Settings, you can adjust their opacity from 0% to 100% and toggle icon lighting independently. The default view uses 17:29 with a city-level Shenzhen reference location, a transparent taskbar and the saved lighting preset. You can switch to real time and set a different location. Personal coordinates and world saves stay on this PC.
+
+An empty desktop marquee calls a saucer. It draws a random crop circle on suitable ground, or inspects the site with a growing dot bubble and leaves. Villagers occasionally take long walks, discover circles only when nearby, fetch helpers and tools, then rake and sow each patch. Grass returns where they actually worked.
 
 ## Included themes
+
+The **Pets** tab integrates qianyiai/KuroCat 4.7.0 as an independent desktop pet: six cats (an enabled, silent, click-through ragdoll at 53% size by default) plus BigFish, 65%/108-key layouts, two keyboard directions, 20–150% sizing, sound, password input protection, click-through, pause/hide and custom skins. Optional MCP skin tools are off by default. Settings and pet data stay under the Preview data directory. Automatic updates and the separate upstream tray/startup entry are removed. Source and MIT licenses: `third_party/KuroCat`.
 
 | Beach | Meadow |
 | --- | --- |
@@ -45,6 +49,7 @@ The theme browser also shows 11 locked themes as a preview of the full Wallpaper
 - Windows 10 or Windows 11, 64-bit.
 - Microsoft Edge WebView2 Runtime.
 - PowerShell and the .NET Framework C# compiler included with Windows; no .NET SDK installation is required.
+- Node.js 20 or 22+, the Rust MSVC toolchain, Visual Studio C++ Build Tools and a Windows SDK to build the desktop pet.
 - An internet connection for the first build, which downloads the WebView2 development library.
 - Node.js only if you want to run the browser preview.
 
@@ -135,13 +140,25 @@ Deskland 是一款 Windows 自适应动态壁纸。移动、添加或删除桌�
 
 秋日草地提供麦金色草地、暖白云团和秋日云影，参数独立保存。
 
-草原人家包含独立活动的牛群、家庭与儿童游戏，房屋避让图标，按真实地点计算晨昏并在夜间点亮火炬。首次使用会请求定位；地点与世界存档仅保存在本机。定位失败时可在设置中填写经纬度和 IANA 时区。最大化或全屏时暂停，恢复后按当前时间调整作息。
+草原人家最多有 12 头牛。边牧每天按当地时间 07:00 带 54 只成年羊和 26 只小羊出圈，每吃约 150 秒换到远处的草地，途中绕过房屋，可以经过图标，草场中心避开图标。羊群密集时，边牧可以踩着羊背换边。落单的羊由它绕到外侧赶回，18:00 收群入圈后回到圈边的狗窝。时间滑杆也能驱动这套作息。村里还有家庭与儿童游戏，房屋避让图标，按真实地点计算晨昏并在夜间点亮火炬。入夜后有 18 只萤火虫，整夜的极光以柔和的环境光映在草地、屋顶和云层上，色彩和明暗随时间缓缓起伏。大人和孩子有时会出门躺在草地上看极光，白天也会躺下休息。流星有时单颗掠过，有时两颗相随，偶尔形成流星雨。约两成流星为白色，其余为青绿、冰蓝、粉紫或琥珀色。宽光晕逐渐扫入画面，短暂照亮沿途的图标。图标下的云默认隐藏，云影仍跟随图标。设置中可在 0% 到 100% 之间调节图标云层的不透明度，也可以单独开关图标受光。默认打开草原人家，使用深圳城市级参考地点的固定 17:29 光照、透明任务栏和当前灯光预设。可切换到现实时间，或在设置中定位、填写其他地点。个人地点与世界存档保存在本机，最大化或全屏时暂停默认关闭。
 
-草原人家的昼夜拥有独立调色：粉紫黎明、翠绿正午、红霞夕照、蓝调与青蓝月夜，夜间保留可见细节，并有窗灯、火炬和少量萤火虫。时间滑杆显示当日晨昏节点，可固定时刻或跟随现实。
+左键单击草原人家的桌面或设置预览中的空白处，可以让一次自然事件立即开始。白天随机触发鸽群或候鸟，从屏幕边缘飞入。候鸟偶尔在开阔草地停歇 10～22 秒后继续迁徙。鸽群以白鸽为主，每群 48～72 只，独立选择方向，一次来访约 6～10 分钟。它们分批在屋顶和草地落脚，多次起飞并在村庄不同位置盘旋，最后飞出屏幕。房屋搬移或落脚点被图标占用时，鸽群会从当前位置起飞离场。同时只出现一群，已有鸽群时忽略额外的鸽群触发。白天也会自然出现鸽群。入夜后，流星按当前设置掠过村庄。候鸟和流星在连续点击时沿用同一方向，停点 8 秒后再次点击会换向。
+
+空白框选会召来飞碟，合适的地面会留下一个随机怪圈；已有怪圈或地点不合适时，飞碟会察看、冒出逐个增加的省略点，然后离开。村民偶尔远行，走近怪圈才会发现，再回家找帮手、取工具并逐段耙地播种，草从实际处理的位置长回。
+
+从空白处按住左键拖框，松开后选中的元素会出现轮廓。再单击另一处空白，选中的房屋、居民或动物会一起移到那里。村民会停下来四下张望，边牧会去找被移远的羊。落点被占用时，地面元素会寻找邻近的可用位置。「桌面互动」里的开关控制普通单击触发的自然事件，关闭后仍可框选搬移。
+
+草原人家用同一套斜俯视比例绘制农舍、村民和牛群。成人约 1.73 米，孩子约 1.12 米，门框高 2.08 米。红瓦屋有门廊，灰瓦屋有老虎窗，赭瓦屋的窗下种着花。
+
+[观看边牧放牧、找羊和收圈的实机动画](docs/images/pastoral-herding.webp)
+
+时间滑杆可固定时刻，也可跟随当地太阳。黎明的桃粉云边逐渐变成杏金色，上午保留翠绿草地，正午则有柠檬黄绿的草尖、亮白的云顶，以及更短、更清晰的青绿投影。午后斜光染上麦金色，夕照在草地上留下珊瑚红反光。入夜后，蓝紫云影、银蓝云边和院内的火炬让村庄依然可见。
 
 ![草原人家时段效果对比](docs/images/pastoral-day-cycle.webp)
 
 ### 包含的主题
+
+“桌宠”页已替换为 qianyiai/KuroCat 4.7.0，独立显示在应用窗口上方。支持六种猫咪与大肥鱼，默认开启 53% 大小的布偶猫、静音和鼠标穿透、65%/108 键、正反朝向、20%–150% 大小、音效、密码输入保护、穿透、暂停隐藏及自定义皮肤。MCP 皮肤扩展默认关闭。开机启动统一使用 Deskland 开关，不接入原项目自动更新。旧设置在迁移前备份，超出新版范围的大小限制到 150%。源码与角色素材的 MIT 许可位于 `third_party/KuroCat`。编译还需要 Node.js 20 或 22+、Rust MSVC 工具链、Visual Studio C++ Build Tools 与 Windows SDK。
 
 | 沙滩 | 草地 |
 | --- | --- |

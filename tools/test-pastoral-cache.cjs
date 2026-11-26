@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../prototype/pastoral-scene.js'),'utf8');
+const start=source.indexOf('  function sprite('),end=source.indexOf('\n  const {farm',start);
+const context=vm.createContext({document:{createElement:()=>({getContext:()=>({scale(){}})})}});
+vm.runInContext('const cache=new Map();let cacheBytes=0;'+source.slice(start,end),context);
+const retained=()=>vm.runInContext('[...cache.values()].reduce((n,c)=>n+c.width*c.height*4,0)',context);
+vm.runInContext('for(let i=0;i<3000;i++)sprite("pose"+i,40,32,()=>{})',context);
+assert(retained()<=32*1024*1024,'long-running animation must not retain every old pose forever');
+assert.equal(vm.runInContext('sprite("pose2999",40,32,()=>{throw Error("cache miss")})===cache.get("pose2999")',context),true);
+console.log('PASS: 3000 animation poses stay within 32 MiB and recent sprites remain cached');

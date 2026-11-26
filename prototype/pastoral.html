@@ -18,6 +18,11 @@
   body { font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif; }
   #art { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
   #desktop { position: fixed; left: 0; top: 0; right: 0; bottom: var(--taskbar); }
+  #art, #desktop { touch-action: none; }
+  #selectionBox, #selectionMarks { position: fixed; pointer-events: none; z-index: 2; }
+  #selectionBox { border: 1px solid #3c91ce; background: rgba(63,152,216,.19); }
+  #selectionMarks { inset: 0; }
+  #selectionMarks i { position: absolute; border: 1.5px dashed white; outline: 1px solid #375f72; border-radius: 5px; }
 
   .icon {
     position: absolute; width: 76px; padding: 4px 2px 5px;
@@ -104,6 +109,7 @@
 <body>
 <canvas id="art"></canvas>
 <div id="desktop"></div>
+<div id="selectionBox" hidden aria-hidden="true"></div><div id="selectionMarks" aria-hidden="true"></div>
 
 <div id="taskbar">
   <div class="apps">
@@ -129,6 +135,7 @@
     </div>
     <div class="sec" id="sliders"></div>
     <div class="sec toggles">
+      <label><input type="checkbox" data-key="iconLighting">图标随光照变化</label>
       <label><input type="checkbox" data-key="debug">显示云的边界</label>
       <label><input type="checkbox" data-key="snap">对齐网格</label>
       <label><input type="checkbox" data-key="cap30">限帧 30fps</label>
@@ -145,7 +152,12 @@
 
 <script src="vendor/suncalc.js"></script>
 <script src="pastoral-light.js"></script>
+<script src="pastoral-flock.js"></script>
+<script src="pastoral-village.js"></script>
+<script src="pastoral-selection.js"></script>
+<script src="pastoral-crop-circle.js"></script>
 <script src="pastoral-world.js"></script>
+<script src="pastoral-models.js"></script>
 <script src="pastoral-scene.js"></script>
 <script src="meadow-scene.js"></script>
 

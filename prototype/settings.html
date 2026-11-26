@@ -151,6 +151,7 @@
   .stage { display: flex; justify-content: center; }
   .preview { position: relative; overflow: hidden; border-radius: 16px; background: var(--panel-2); }
   .preview iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .preview iframe[src^="pastoral.html"] { pointer-events: auto; }
   .preview-foot { margin-top: 12px; color: var(--muted); font-size: 10px; display: flex; align-items: center; gap: 6px; }
   .live-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--text); }
 
@@ -180,6 +181,7 @@
   .opts button:hover { background: var(--accent-soft); }
   .opts button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
   .track { position: relative; }
+  #tryMeteor { margin-top: 8px; }
   input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; margin: 2px 0 0; background: transparent; cursor: pointer; }
   input[type=range]:focus { outline: none; }
   input[type=range]::-webkit-slider-runnable-track {
@@ -270,12 +272,13 @@
     *, *::before, *::after { transition: none !important; }
   }
 </style>
+<link rel="stylesheet" href="pets.css">
 </head>
 <body>
 <header class="top">
   <div class="top-left">
     <div class="brand">Deskland Preview</div>
-    <div class="section-title" data-i18n="themes">主题</div>
+    <nav class="section-nav" aria-label="Deskland"><button id="themesTab" class="active" aria-pressed="true" data-i18n="themes">主题</button><button id="petsTab" aria-pressed="false" data-i18n="pets">桌宠</button></nav>
   </div>
   <div class="top-right">
     <label class="lang-row">
@@ -288,7 +291,7 @@
   </div>
 </header>
 
-<main class="layout">
+<main class="layout" id="themesView">
   <section class="themes">
     <div class="collection-head">
       <h1 data-i18n="collectionTitle">选一片风景。</h1>
@@ -322,6 +325,14 @@
     </section>
     <section class="card controls" id="controls"></section>
   </div>
+</main>
+<main class="pets-layout" id="petsView" hidden>
+  <section class="pets-collection">
+    <div class="collection-head"><h1 data-i18n="petsTitle">让陪伴浮在桌面上。</h1><p data-i18n="petsSubtitle">独立置顶的桌宠，切换壁纸也一直在。</p></div>
+    <div class="pet-list" id="petList"></div>
+    <div class="pet-about"><p data-i18n="petHow">拖动猫咪调整位置，轻抚头背会闭眼。快速晃动鼠标进入捕猎模式，闲置时会打瞌睡。</p><p data-i18n="petHotkey">完全穿透时，按住 Alt 可临时拖动和右键。右键桌宠打开 Deskland 设置。</p><p data-i18n="petPrivacy">密码保护默认开启，MCP 皮肤扩展默认关闭。开机启动使用 Deskland 开关。</p><p class="pet-credit">KuroCat 4.7 · qianyiai · MIT</p></div>
+  </section>
+  <aside class="side pet-side"><div class="pet-heading"><h2 data-i18n="petSettings">桌宠设置</h2><label class="switch-row"><span data-i18n="petEnabled">显示桌宠</span><input id="petEnabled" type="checkbox" role="switch"><i class="switch"></i></label></div><p id="petStatus" class="hint" role="status"></p><div id="petControls" class="controls"></div><div class="pet-stats" id="petStats"></div><div class="pet-actions"><button class="ghost-btn" id="petDemo" data-i18n="petDemo">演示打字</button><button class="ghost-btn" id="petPosition" data-i18n="petPosition">重置位置</button><button class="ghost-btn" id="petReset" data-i18n="petReset">恢复默认</button></div></aside>
 </main>
 
 <div class="modal" id="purchaseModal" hidden role="dialog" aria-modal="true" aria-labelledby="purchaseTitle">
@@ -380,15 +391,21 @@
 
 <script src="thumbs-data.js"></script>
 <script src="vendor/suncalc.js"></script>
+<script src="pastoral-flock.js"></script>
+<script src="pastoral-village.js"></script>
+<script src="pastoral-selection.js"></script>
+<script src="pastoral-crop-circle.js"></script>
 <script src="pastoral-world.js"></script>
 <script src="pastoral-light.js"></script>
 <script src="pastoral-settings.js"></script>
+<script src="pets.js"></script>
+<script src="pet-preview.js"></script>
 <script>
 'use strict';
 const host = window.chrome && window.chrome.webview;
 const send = m => { if (host) host.postMessage(JSON.stringify(m)); };
 
-const state = { registry0: null, registry: null, theme: 'beach', params: {}, screen: null, icons: null,
+const state = { registry0: null, registry: null, theme: 'pastoral', params: {}, screen: null, icons: null,
   langSetting: 'auto', langSys: 'zh-CN', autostartWarn: false, autostartSw: '',
   updateVersion: '', updateStatus: '', updateProgress: -1, updateError: '' };
 const $ = id => document.getElementById(id);
@@ -456,6 +473,7 @@ function applyStatic() {
     Object.entries(LANGS).map(([c, n]) => `<option value="${c}">${n}</option>`).join('');
   $('lang').value = state.langSetting in LANGS ? state.langSetting : 'auto';
   $('lang').setAttribute('aria-label', t('language'));
+  renderPets();
 }
 async function setLang(code) {
   if (!LANGS[code]) code = 'en';
@@ -478,7 +496,7 @@ $('lang').addEventListener('change', e => {
 /* ---------- 主题清单 ---------- */
 const themeById = id => state.registry.themes.find(t => t.id === id);
 function defaultsOf(theme) {
-  const d = {};
+  const d = {...theme.defaults};
   if (theme.adaptive) d.adaptive = 1;
   for (const g of theme.groups || []) for (const p of g.params) d[p.key] = p.default;
   return d;
@@ -535,7 +553,7 @@ $('themes').addEventListener('click', e => {
 
 /* ---------- 刷新：换一张（新的种子，按主题存进设置；桌面和预览用同一个种子） ---------- */
 const newSeed = () => Math.floor(Math.random() * 1e6);
-const seedOf = id => (state.params[id] || {}).seed;
+const seedOf = id => valuesOf(themeById(id)).seed;
 function setSeed(v, live) {
   (state.params[state.theme] = state.params[state.theme] || {}).seed = v;
   send({ t: 'set', theme: state.theme, key: 'seed', value: v });
@@ -560,7 +578,8 @@ function renderControls() {
             `<button data-opt="${i}" class="${vals[p.key] === i ? 'on' : ''}" role="radio" aria-checked="${vals[p.key] === i}">${o}</button>`).join('')}</div>` : `
           <div class="track" title="${t('dblclickReset', { v: fmt(p, p.default) })}">
             <input type="range" data-key="${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${vals[p.key]}" aria-label="${p.label}">
-          </div>`}
+          </div>
+          ${theme.id === 'pastoral' && p.key === 'meteorBrightness' ? `<button type="button" class="ghost-btn" id="tryMeteor">${t('tryMeteor')}</button>` : ''}`}
         </div>`).join('')}
       ${g.soon ? `<div class="soon">${t('comingSoon')}${g.soon.map(s => `<span class="chip">${s}</span>`).join('')}</div>` : ''}
     </div>`).join('') + pastoralSettingsMarkup();
@@ -597,6 +616,13 @@ function setParam(key, v) {
 $('controls').addEventListener('input', e => { if (e.target.dataset.key) setParam(e.target.dataset.key, +e.target.value); });
 // 单项恢复默认：点 ↺，或双击滑块
 $('controls').addEventListener('click', e => {
+  if (e.target.id === 'tryMeteor') {
+    if (scheduled) flush();
+    const message = {t:'tryMeteor'};
+    toPreview(message);
+    send(message);
+    return;
+  }
   const b = e.target.closest('[data-reset]');
   if (b) setParam(b.dataset.reset, paramOf(b.dataset.reset).default);
   const o = e.target.closest('[data-opt]');
@@ -682,16 +708,32 @@ function layoutPreview() {
 }
 addEventListener('resize', layoutPreview);
 addEventListener('message', e => {
-  if (e.source !== frame.contentWindow) return;
-  const m = JSON.parse(e.data);
+  if (e.source !== frame.contentWindow || e.origin !== location.origin || typeof e.data !== 'string') return;
+  let m;
+  try { m = JSON.parse(e.data); } catch { return; }
+  if (!m) return;
+  if (m.t === 'moveSelection' || m.t === 'triggerEvent') {
+    if (!host || state.theme !== 'pastoral' || frame.getAttribute('src') !== 'pastoral.html?preview=1') return;
+    if (m.t === 'triggerEvent') send({t: 'triggerEvent'});
+    else if (Array.isArray(m.ids) && m.ids.length > 0 && m.ids.length <= 512 &&
+             m.ids.every(id => typeof id === 'string' && id.length <= 128 && id.trim().length > 0) &&
+             [m.x, m.y].every(n => Number.isFinite(n) && n >= 0 && n <= 1))
+      send({t: 'moveSelection', ids: m.ids, x: m.x, y: m.y});
+    return;
+  }
   if (m.t === 'ready') {
-    if(state.theme==='pastoral'){send({t:'worldRequest'});if(state.world)toPreview({t:'world',v:state.world});}                 // 预览页面加载好了：先给设置，再给图标
+    if(state.theme==='pastoral'){
+      toPreview({t:'interactionHost',v:!!host});
+      send({t:'worldRequest'});
+      if(state.world)toPreview({t:'world',v:state.world});
+    }
     toPreview({ t: 'settings', v: valuesOf(themeById(state.theme)) });
+    toPreview({ t: 'power', v: !!state.onBattery });
     if (state.icons) toPreview(state.icons);
   }
 });
 function updateFoot() {
-  $('previewFoot').textContent = state.theme==='pastoral'&&state.world?t('worldSummary',{homes:state.world.homes.length,cows:state.world.agents.filter(a=>a.kind==='cow').length,people:state.world.agents.filter(a=>a.kind!=='cow').length}):t('livePreview');
+  $('previewFoot').textContent = state.theme==='pastoral'&&state.world?t('worldSummary',{homes:state.world.homes.length,cows:state.world.agents.filter(a=>a.kind==='cow').length,people:state.world.agents.filter(a=>a.kind==='adult'||a.kind==='child').length}):t('livePreview');
 }
 
 function renderHead() {
@@ -791,8 +833,18 @@ $('shareReveal').addEventListener('click', () => send({ t: 'revealShare' }));
 
 /* ---------- 和宿主通信 ---------- */
 function onHost(m) {
+  if(m.t==='petState'){receivePet(m);return;}
+  if(m.t==='openPets'){showDesklandSection('pets');return;}
+  if(m.t==='taskbarError'){
+    (state.params.pastoral=state.params.pastoral||{}).transparentTaskbar=0;
+    if(state.theme==='pastoral')renderControls();
+    alert(t('taskbarError'));
+    return;
+  }
+  if(m.t==='power'){state.onBattery=!!m.v;toPreview(m);return;}
   if(m.t==='world'){state.world=m.v;if(state.theme==='pastoral'){toPreview(m);updateFoot();}return;}
   if (m.t === 'init') {
+    state.onBattery=!!m.onBattery;
     state.langSetting = m.lang || 'auto';
     state.langSys = m.langSys || 'zh-CN';
     setLang(m.langEff || state.langSys).then(() => {        // 先按界面语言把文字表读进来，再画界面
@@ -843,7 +895,7 @@ function mockHost() {
   for (let c = 0; c < 4; c++) for (let row = 0; row < 9; row++) cell(c, row);
   for (const [c, row] of [[6, 0], [6, 1], [7, 3], [8, 3], [8, 4], [12, 1], [13, 1], [14, 1], [13, 2], [14, 2], [20, 0], [21, 0], [19, 5], [20, 5]]) cell(c, row);
   const bl = browserLang();
-  onHost({ t: 'init', theme: 'beach', params: {}, screen: { w: W * k, h: H * k }, autostart: false, lang: 'auto', langEff: bl, langSys: bl });
+  onHost({ t: 'init', theme: 'pastoral', params: state.params, screen: { w: W * k, h: H * k }, autostart: false, lang: 'auto', langEff: bl, langSys: bl });
   onHost({ t: 'icons', vis: true, r });
   if (new URLSearchParams(location.search).has('updateDemo')) onHost({ t: 'updateState', version: '0.2.0', status: 'available', progress: -1 });
 }
