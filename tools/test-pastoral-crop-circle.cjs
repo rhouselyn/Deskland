@@ -59,6 +59,21 @@ for(const [age,dots] of [[3,1],[4.2,2],[5.4,3]])
 assert(!CropCircles.visitFlight(scout,scout.since+10).visible,'the inspecting saucer leaves');
 const scouted=new CropCircles();scouted.restore(JSON.parse(JSON.stringify(manual.snapshot())));
 assert.deepEqual(scouted.visit,scout,'previews and reloads preserve the saucer visit');
+const corners=new Set(),exits=new Set();
+for(let i=0;i<64;i++){
+  const route=CropCircles.flightRoute(empty);
+  corners.add(Number(route.from.x>0)+2*Number(route.from.y>0));
+  exits.add(route.to.x<0?'left':route.to.x>empty.width?'right':route.to.y<0?'top':'bottom');
+  const circle={x:300,y:225,radius:101,since:10,route};
+  assert.deepEqual([CropCircles.flight(circle,10).x,CropCircles.flight(circle,10).y],[route.from.x,route.from.y]);
+  const finish=CropCircles.flight(circle,20);
+  assert.deepEqual([finish.x,finish.y],[route.to.x,route.to.y]);
+  for(const boundary of [2.8,7.2]){
+    const before=CropCircles.flight(circle,10+boundary-1e-5),after=CropCircles.flight(circle,10+boundary+1e-5);
+    assert(Math.hypot(before.x-after.x,before.y-after.y)<.02,'flight remains continuous at arrival and departure');
+  }
+}
+assert.equal(corners.size,4);assert.equal(exits.size,4);
 manual.circle=null;
 assert(!manual.summon(empty,170,130,430,320,[{x:425,y:315,rx:12,ry:12}]),'partial object overlap blocks an otherwise empty selection');
 empty.icons=[{x:425,y:315,w:40,h:60}];

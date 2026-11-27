@@ -13,10 +13,11 @@ function createPastoralScene() {
   let meteorBursts=[],meteorPaths=[],lastClick=-Infinity,lastSpawn=-Infinity,clickHeading=-1,vertical=false;
   let selection=null,lastMarks=-Infinity,editRevision=0,lastEventTick=performance.now();
   const marks=document.getElementById('selectionMarks');
-  const texture=gl.createTexture(),lightTexture=gl.createTexture(),cropTexture=gl.createTexture();
+  const texture=gl.createTexture(),lightTexture=gl.createTexture(),cropTexture=gl.createTexture(),airTexture=gl.createTexture();
   const cropRect=new Float32Array(4),cropTiming=new Float32Array(2);
+  const airRect=new Float32Array(4),airLayer=document.createElement('canvas'),airContext=airLayer.getContext('2d');
   function setup(t){gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(4));}
-  setup(texture);setup(lightTexture);setup(cropTexture);
+  setup(texture);setup(lightTexture);setup(cropTexture);setup(airTexture);
   const textureSizes=new Map();
   function uploadCanvas(t,c){
     gl.bindTexture(gl.TEXTURE_2D,t);
@@ -205,11 +206,10 @@ function createPastoralScene() {
     const pose=c.stage==='forming'?flight(c,world.time):null;
     cropRect[0]=c.x-width/2;cropRect[1]=c.y-height/2;cropRect[2]=width;cropRect[3]=height;
     cropTiming[0]=pose?.trace??1;cropTiming[1]=c.progress;
-    drawAlien(pose,c.y);
   }
-  function drawAlien(pose,groundY){
+  function drawAlienGround(pose){
     if(!pose?.visible)return;
-    const x=pose.x,y=groundY-pose.altitude;
+    const x=pose.x,y=pose.y,groundY=pose.groundY;
     ellipse(ctx,x,groundY,11,3,'rgba(41,46,60,.19)');
     if(pose.beam>0){
       ctx.globalAlpha=pose.beam;
@@ -217,18 +217,38 @@ function createPastoralScene() {
       ellipse(ctx,x,groundY,8,2.8,'#c5f9d69e');
       ctx.globalAlpha=1;
     }
+  }
+  function drawAlien(g,pose){
+    const x=pose.x,y=pose.y;
     const ship=sprite('crop-circle-ship',32,19,g=>{
       ellipse(g,16,11,13,4.4,'#3d5262');ellipse(g,16,9.6,13,3.1,'#9cacb5');
       ellipse(g,16,7,6,3.8,'#d3ece4');ellipse(g,16,7.2,3.6,2.5,'#82bcb7');
       ellipse(g,16.6,7.3,1.65,1.65,'#507d78');ellipse(g,17.2,7,0.5,0.45,'#d1ffda');
       for(const xx of [7,11,16,21,25])ellipse(g,xx,11.3,.95,.6,'#d1ffda');
     });
-    ctx.drawImage(ship,x-16,y-10,32,19);
+    g.drawImage(ship,x-16,y-10,32,19);
     if(pose.dots){
-      ellipse(ctx,x,y-23,12,7,'#f3f1dd');
-      models.polygon(ctx,[{x:x-3,y:y-18},{x:x-2,y:y-13},{x:x+3,y:y-18}],'#f3f1dd');
-      for(let i=0;i<pose.dots;i++)ellipse(ctx,x+(i-(pose.dots-1)/2)*4,y-23,1,1,'#52634f');
+      ellipse(g,x,y-23,12,7,'#f3f1dd');
+      models.polygon(g,[{x:x-3,y:y-18},{x:x-2,y:y-13},{x:x+3,y:y-18}],'#f3f1dd');
+      for(let i=0;i<pose.dots;i++)ellipse(g,x+(i-(pose.dots-1)/2)*4,y-23,1,1,'#52634f');
     }
+  }
+  function drawAir(scale){
+    const {circle,visit}=world.cropCircles,poses=[];
+    if(circle?.stage==='forming')poses.push(PastoralCropCircles.flight(circle,world.time));
+    if(visit)poses.push(PastoralCropCircles.visitFlight(visit,world.time));
+    const visible=poses.filter(p=>p.visible&&p.x>=-36&&p.x<=W+36&&p.y>=-12&&p.y<=H+36);
+    if(!visible.length){airRect[2]=0;return poses;}
+    const left=Math.min(...visible.map(p=>p.x))-18,top=Math.min(...visible.map(p=>p.y))-32;
+    const width=Math.max(...visible.map(p=>p.x))+18-left,height=Math.max(...visible.map(p=>p.y))+12-top;
+    const pw=Math.ceil(width*scale-1e-6),ph=Math.ceil(height*scale-1e-6);
+    if(airLayer.width!==pw||airLayer.height!==ph){airLayer.width=pw;airLayer.height=ph;}
+    airContext.resetTransform();airContext.clearRect(0,0,pw,ph);
+    airContext.setTransform(pw/width,0,0,ph/height,-left*pw/width,-top*ph/height);
+    for(const pose of visible)drawAlien(airContext,pose);
+    airRect.set([left,top,width,height]);
+    gl.activeTexture(gl.TEXTURE14);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);uploadCanvas(airTexture,airLayer);
+    return poses;
   }
   function drawFarm(key,h,drawModel){
     const im=sprite(key,farm.w,farm.h,drawModel);
@@ -545,6 +565,7 @@ function createPastoralScene() {
     if(!world.free)return;
     const ambientTime=reducedMotion.matches?0:now;
     const scale=cv._scale,box=cv.getBoundingClientRect(),pw=Math.round(box.width*scale),ph=Math.round(box.height*scale);
+    const airPoses=drawAir(scale);
     if(layer.width!==pw||layer.height!==ph){layer.width=pw;layer.height=ph;lastDraw=-Infinity;}
     // 局部精灵预绘入缓存，世界层 15Hz 上传；草地和云继续以 30fps 绘制。
     if(now-lastDraw<65&&layer.width===pw&&layer.height===ph)return;lastDraw=now;
@@ -560,8 +581,7 @@ function createPastoralScene() {
     ctx.strokeStyle=roadSoil;ctx.lineWidth=6.5;ctx.lineCap='round';ctx.lineJoin='round';
     ctx.stroke(roadPath);
     drawCropCircle(scale);
-    const visit=world.cropCircles.visit;
-    if(visit)drawAlien(PastoralCropCircles.visitFlight(visit,world.time),visit.y);
+    for(const pose of airPoses)drawAlienGround(pose);
     drawDayEvents(true);
     for(const h of world.homes){drawFarm('yard'+h.id,h,c=>models.yard(c,h.id));farmShadow(h);}
     const items=[];
@@ -773,7 +793,7 @@ function createPastoralScene() {
     gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,gl.RGBA,gl.UNSIGNED_BYTE,mask);
     return true;
   }
-  return {world,update,draw,receive,clickAt,selectBox,clearSelection,moveSelection,triggerEvent,syncPreviewGesture,aurora,tryMeteor,drawMeteorLight,meteorAt,get meteorActive(){return activeTrails.length>0;},get solar(){return solar;},get paint(){return paint;},get location(){return location;},texture,lightTexture,cropTexture,cropRect,cropTiming,shade,save,setTime(date){override=date;lastSun=-Infinity;},cache};
+  return {world,update,draw,receive,clickAt,selectBox,clearSelection,moveSelection,triggerEvent,syncPreviewGesture,aurora,tryMeteor,drawMeteorLight,meteorAt,get meteorActive(){return activeTrails.length>0;},get solar(){return solar;},get paint(){return paint;},get location(){return location;},texture,lightTexture,cropTexture,cropRect,cropTiming,airTexture,airRect,shade,save,setTime(date){override=date;lastSun=-Infinity;},cache};
 }
 function preparePastoral(now,dt){if(!pastoralScene)pastoralScene=createPastoralScene();pastoralScene.update(now,dt);}
 

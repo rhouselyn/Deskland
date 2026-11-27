@@ -1,12 +1,14 @@
 # Deskland Preview
 
+This is rhouselyn's independent community continuation of [BLEZZ0102/Deskland](https://github.com/BLEZZ0102/Deskland). The original authorship, GPL-3.0 license and third-party notices are preserved.
+
 **Adaptive Windows wallpaper that makes your desktop icons part of the scenery.**
 
 Deskland turns the space around your icons into a living landscape. Move, add or remove an icon and the beach, meadow, clouds and shadows quietly reshape around it — in real time, without AI, an account or an API key.
 
 This is the **free, open-source Preview**, not a time-limited trial. It includes the complete **Beach**, **Meadow**, **Autumn Meadow** and **Meadow Village** themes, the Windows host, settings and sharing tools.
 
-**English** · [简体中文](#中文说明) · [Official website](https://deskland.app) · [Features](#features) · [Build from source](#build-from-source)
+**English** · [简体中文](#中文说明) · [Upstream website](https://deskland.app) · [Features](#features) · [Build from source](#build-from-source)
 
 ![Meadow Village — included in Deskland Preview](docs/images/pastoral-day.webp)
 
@@ -22,7 +24,7 @@ Autumn Meadow adds wheat-gold grass, warm clouds and autumn shadows, with indepe
 
 A border collie takes 54 adult sheep and 26 lambs out at 07:00 local time, moves to a distant reachable patch of grass after about 150 seconds of grazing and brings them back at 18:00. When the flock packs tightly, the collie can run across the sheep’s backs to change sides. Meadow Village also has independent cows and families, safe house placement, children’s games, local sunrise/sunset and torchlit nights. Eight daylight palettes distinguish rosy dawn, emerald mornings, sun-bleached noon highlights, coral sunset, blue hour and silver-blue moonlight, with warm windows, 18 fireflies and a soft auroral glow that shifts across the grass, roofs and clouds throughout the night. Adults and children sometimes lie on the grass to watch the lights or rest there by day. Single meteors, pairs and occasional showers gradually cast broad glows that briefly light nearby icons. About one in five is white, with blue-green, icy blue, pink-violet and amber making up the rest. Icon clouds are hidden by default while their shadows follow the icons. In Settings, you can adjust their opacity from 0% to 100% and toggle icon lighting independently. The default view uses 17:29 with a city-level Shenzhen reference location, a transparent taskbar and the saved lighting preset. You can switch to real time and set a different location. Personal coordinates and world saves stay on this PC.
 
-An empty desktop marquee calls a saucer. It draws a random crop circle on suitable ground, or inspects the site with a growing dot bubble and leaves. Villagers occasionally take long walks, discover circles only when nearby, fetch helpers and tools, then rake and sow each patch. Grass returns where they actually worked.
+An empty desktop marquee calls a saucer from a random screen corner. It flies above buildings and clouds, draws a random crop circle on suitable ground or inspects the site with a growing dot bubble, then departs through a random screen edge. Villagers occasionally take long walks, discover circles only when nearby, fetch helpers and tools, then rake and sow each patch. Grass returns where they actually worked.
 
 ## Included themes
 
@@ -94,7 +96,7 @@ The first build downloads portable NSIS and Microsoft's WebView2 bootstrapper. A
 
 The installer targets the current user's `Programs\Deskland Preview` directory and does not require administrator rights. If WebView2 is missing, its bootstrapper requires an internet connection. Uninstalling preserves user settings.
 
-[Download Deskland Preview for Windows](https://github.com/BLEZZ0102/Deskland/releases/latest). The installer is unsigned, so Windows SmartScreen may show a warning.
+[Download the upstream Deskland Preview release](https://github.com/BLEZZ0102/Deskland/releases/latest). The installer is unsigned, so Windows SmartScreen may show a warning.
 
 ## Project layout
 
@@ -128,6 +130,8 @@ Issues and suggestions are welcome through GitHub Issues. This is an independent
 
 ## 中文说明
 
+本仓库由 rhouselyn 独立维护，基于 [BLEZZ0102/Deskland](https://github.com/BLEZZ0102/Deskland) 继续开发，保留原作者署名、GPL-3.0 与第三方许可。
+
 [English](#deskland-preview) · **简体中文**
 
 **让桌面图标成为风景的一部分。**
@@ -144,7 +148,7 @@ Deskland 是一款 Windows 自适应动态壁纸。移动、添加或删除桌�
 
 左键单击草原人家的桌面或设置预览中的空白处，可以让一次自然事件立即开始。白天随机触发鸽群或候鸟，从屏幕边缘飞入。候鸟偶尔在开阔草地停歇 10～22 秒后继续迁徙。鸽群以白鸽为主，每群 48～72 只，独立选择方向，一次来访约 6～10 分钟。它们分批在屋顶和草地落脚，多次起飞并在村庄不同位置盘旋，最后飞出屏幕。房屋搬移或落脚点被图标占用时，鸽群会从当前位置起飞离场。同时只出现一群，已有鸽群时忽略额外的鸽群触发。白天也会自然出现鸽群。入夜后，流星按当前设置掠过村庄。候鸟和流星在连续点击时沿用同一方向，停点 8 秒后再次点击会换向。
 
-空白框选会召来飞碟，合适的地面会留下一个随机怪圈；已有怪圈或地点不合适时，飞碟会察看、冒出逐个增加的省略点，然后离开。村民偶尔远行，走近怪圈才会发现，再回家找帮手、取工具并逐段耙地播种，草从实际处理的位置长回。
+空白框选会召来飞碟，从随机屏幕角落飞入，在建筑与云层上方到达目标。合适的地面会留下一个随机怪圈；已有怪圈或地点不合适时，飞碟会察看、冒出逐个增加的省略点，最后从随机边缘离开。村民偶尔远行，走近怪圈才会发现，再回家找帮手、取工具并逐段耙地播种，草从实际处理的位置长回。
 
 从空白处按住左键拖框，松开后选中的元素会出现轮廓。再单击另一处空白，选中的房屋、居民或动物会一起移到那里。村民会停下来四下张望，边牧会去找被移远的羊。落点被占用时，地面元素会寻找邻近的可用位置。「桌面互动」里的开关控制普通单击触发的自然事件，关闭后仍可框选搬移。
 

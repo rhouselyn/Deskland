@@ -12,6 +12,25 @@
   const stages=['forming','waiting','notice','report','fetch','carry','work'];
   const growthSeconds=5,patchRadius=14;
 
+  function flightRoute(w){
+    const corner=Math.floor(Math.random()*4),edge=Math.floor(Math.random()*4);
+    const width=w.width,height=w.height+52,pad=96;
+    const from={x:corner%2?width+pad:-pad,y:corner<2?-pad:height+pad};
+    const to=edge<2?{x:edge?width+pad:-pad,y:Math.random()*height}:
+      {x:Math.random()*width,y:edge===2?-pad:height+pad};
+    return {from,to};
+  }
+
+  function restoredRoute(route){
+    if(!route||![route.from?.x,route.from?.y,route.to?.x,route.to?.y].every(Number.isFinite))return null;
+    return {from:{x:route.from.x,y:route.from.y},to:{x:route.to.x,y:route.to.y}};
+  }
+
+  function travel(from,to,fraction){
+    const t=limit(fraction),ease=t*t*(3-2*t);
+    return {x:from.x+(to.x-from.x)*ease,y:from.y+(to.y-from.y)*ease};
+  }
+
   function workPatches(c){
     const core=typeof module!=='undefined'&&module.exports?require('./pastoral-world.js'):root.PastoralCore;
     const patches=[];
@@ -85,17 +104,25 @@
 
   function flight(c,time){
     const age=Math.max(0,time-c.since),trace=limit((age-approach)/carve);
-    const down=1-limit(age/approach),up=limit((age-approach-carve)/departure);
-    return {trace,altitude:18+108*(down*down+up*up),x:c.x+c.radius*(2*trace-1)-85*down+85*up,
-      beam:limit(1-down*4-up*5),visible:age<approach+carve+departure};
+    const start={x:c.x-c.radius,y:c.y-18},end={x:c.x+c.radius,y:c.y-18};
+    const route=c.route||{from:{x:-96,y:-96},to:{x:c.x+c.radius+400,y:-96}};
+    let point={x:c.x+c.radius*(2*trace-1),y:c.y-18};
+    if(age<approach)point=travel(route.from,start,age/approach);
+    if(age>=approach+carve)point=travel(end,route.to,(age-approach-carve)/departure);
+    return {...point,trace,groundY:point.y+18,altitude:18,
+      beam:age>=approach&&age<approach+carve?1:0,visible:age<approach+carve+departure};
   }
 
   function visitFlight(visit,time){
-    const age=Math.max(0,time-visit.since),down=1-limit(age/approach),up=limit((age-approach-4.2)/departure);
+    const age=Math.max(0,time-visit.since);
     const looking=age>=approach&&age<approach+4.2;
     const angle=limit((age-approach)/4.2)*fullTurn;
-    return {x:visit.x-85*down+85*up+(looking?Math.sin(angle)*9:0),
-      altitude:23+108*(down*down+up*up)+(looking?4*(1-Math.cos(angle)):0),beam:0,visible:age<approach+4.2+departure,
+    const center={x:visit.x,y:visit.y-23};
+    const route=visit.route||{from:{x:-96,y:-96},to:{x:visit.x+400,y:-96}};
+    let point={x:visit.x+Math.sin(angle)*9,y:center.y-4*(1-Math.cos(angle))};
+    if(age<approach)point=travel(route.from,center,age/approach);
+    if(age>=approach+4.2)point=travel(center,route.to,(age-approach-4.2)/departure);
+    return {...point,groundY:point.y+23,altitude:23,beam:0,visible:age<approach+4.2+departure,
       dots:looking?Math.min(3,1+Math.floor((age-approach)/1.1)):0};
   }
 
@@ -170,7 +197,7 @@
       if(!w.free||![x,y,x2,y2].every(Number.isFinite))return false;
       const left=Math.min(x,x2),right=Math.max(x,x2),top=Math.min(y,y2),bottom=Math.max(y,y2);
       if(left<0||top<0||right>w.width||bottom>w.height||right-left<4||bottom-top<4)return false;
-      this.visit={x:(left+right)/2,y:(top+bottom)/2,since:w.time};
+      this.visit={x:(left+right)/2,y:(top+bottom)/2,since:w.time,route:flightRoute(w)};
       if(this.circle)return false;
       const overlaps=o=>o.x<right&&o.x+o.w>left&&o.y<bottom&&o.y+o.h>top;
       const ground=objects.filter(o=>!['cloud','field'].includes(o.kind));
@@ -181,7 +208,7 @@
       for(let radius=preferred;radius>=minRadius;radius=Math.max(minRadius,radius-4)){
         const site={x:(left+right)/2,y:(top+bottom)/2,radius,manual:true};
         if(cleared(w,site,ground)&&w.homes.some(h=>w.path(h.door,site,w.free,true).length)){
-          this.circle={...site,seed:Math.floor(Math.random()*0x100000000),stage:'forming',since:w.time,crew:[],progress:0,retryAt:0};
+          this.circle={...site,seed:Math.floor(Math.random()*0x100000000),stage:'forming',since:w.time,crew:[],progress:0,retryAt:0,route:this.visit.route};
           this.visit=null;
           return true;
         }
@@ -215,14 +242,15 @@
         if(w.time<this.nextAt)return;
         this.nextAt=w.time+45;
         const site=findSite(w,this.objects(w,fireflies));
-        if(site)this.circle={...site,seed:Math.floor(Math.random()*0x100000000),stage:'forming',since:w.time,crew:[],progress:0,retryAt:0};
+        if(site)this.circle={...site,seed:Math.floor(Math.random()*0x100000000),stage:'forming',since:w.time,crew:[],progress:0,retryAt:0,route:flightRoute(w)};
         return;
       }
       const elapsed=w.time-c.since;
       if(c.stage==='forming'){
         const objects=this.objects(w,fireflies).filter(o=>!c.manual||o.kind!=='field');
         if(elapsed>=approach&&elapsed-dt<approach&&!cleared(w,c,objects)){
-          this.visit={x:c.x,y:c.y,since:w.time-approach};this.circle=null;return;
+          const pose=flight(c,w.time);
+          this.visit={x:pose.x,y:pose.y+23,since:w.time-approach,route:c.route};this.circle=null;return;
         }
         if(elapsed>=approach+carve+departure)this.stage(w,'waiting');
         return;
@@ -329,8 +357,10 @@
     }
 
     layout(w){
+      if(this.visit&&!this.visit.route)this.visit.route=flightRoute(w);
       const c=this.circle;
       if(!c)return;
+      if(c.stage==='forming'&&!c.route)c.route=flightRoute(w);
       if(c.stage==='report'||c.stage==='fetch'){
         const finder=w.agents.find(a=>a.id===c.crew[0]&&a.game===game);
         if(!finder?.target||distance(finder.target,w.home(finder.home).door)>1){this.retry(w);return;}
@@ -351,13 +381,14 @@
     restore(data){
       this.nextAt=Number.isFinite(data?.nextAt)&&data.nextAt>=0?data.nextAt:null;
       const visit=data?.visit;
-      this.visit=visit&&[visit.x,visit.y,visit.since].every(Number.isFinite)?{x:visit.x,y:visit.y,since:visit.since}:null;
+      this.visit=visit&&[visit.x,visit.y,visit.since].every(Number.isFinite)?
+        {x:visit.x,y:visit.y,since:visit.since,route:restoredRoute(visit.route)}:null;
       const c=data?.circle;
       if(c&&[c.x,c.y,c.radius,c.since,c.progress,c.retryAt].every(Number.isFinite)&&
         (c.radius>=minRadius&&c.radius<=maxRadius||c.radius>=41&&c.radius<=56)&&
         c.progress>=0&&c.progress<1&&Number.isInteger(c.seed)&&stages.includes(c.stage)&&Array.isArray(c.crew)&&
         c.crew.length<=3&&c.crew.every(id=>typeof id==='string')&&new Set(c.crew).size===c.crew.length){
-        this.circle={...c,readyAt:Number.isFinite(c.readyAt)?c.readyAt:null};
+        this.circle={...c,readyAt:Number.isFinite(c.readyAt)?c.readyAt:null,route:restoredRoute(c.route)};
         if(Array.isArray(c.patches)){
           this.circle.patches=workPatches(c);
           this.circle.patches.forEach((p,i)=>{
@@ -375,6 +406,6 @@
     }
   }
 
-  Object.assign(CropCircles,{game,squash,pattern,flight,visitFlight,growthSeconds,patchRadius,workPatches});
+  Object.assign(CropCircles,{game,squash,pattern,flight,visitFlight,growthSeconds,patchRadius,workPatches,flightRoute});
   if(typeof module!=='undefined'&&module.exports)module.exports=CropCircles;else root.PastoralCropCircles=CropCircles;
 })(globalThis);

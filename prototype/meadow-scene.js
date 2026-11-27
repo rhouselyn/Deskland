@@ -246,6 +246,8 @@ uniform sampler2D uWorld, uWorldLight;
 uniform sampler2D uCropMask;
 uniform vec4 uCropRect;
 uniform vec2 uCropTiming;
+uniform sampler2D uAir;
+uniform vec4 uAirRect;
 uniform bool uHasMeteor;
 uniform float uIconCloudOpacity, uMeteorBrightness;
 uniform sampler2D uMeteorLight;
@@ -494,6 +496,12 @@ void main() {
     float skyDistance;
     vec3 drifting=paintClouds(p,ground,false,skyDistance,sunDir,skyGlow,meteor,lamp);
     col=mix(drifting,col,uIconCloudOpacity);
+  }
+  vec2 airOffset=p-uAirRect.xy;
+  if(uAirRect.z>0. && all(greaterThanEqual(airOffset,vec2(0.))) && all(lessThan(airOffset,uAirRect.zw))){
+    vec4 air=texture(uAir,airOffset/uAirRect.zw);
+    vec3 airLight=air.rgb*mix(vec3(1.),uWorldAmbient,.65)+meteor*(.1+.35*air.rgb);
+    col=mix(col,airLight,air.a);
   }
 #else
   col=paintClouds(p,col,true,d);
@@ -1027,6 +1035,8 @@ function draw(now) {
       gl.activeTexture(gl.TEXTURE10);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.lightTexture);gl.uniform1i(U.uWorldLight,10);
       gl.activeTexture(gl.TEXTURE13);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.cropTexture);gl.uniform1i(U.uCropMask,13);
       gl.uniform4fv(U.uCropRect,pastoralScene.cropRect);gl.uniform2fv(U.uCropTiming,pastoralScene.cropTiming);
+      gl.activeTexture(gl.TEXTURE14);gl.bindTexture(gl.TEXTURE_2D,pastoralScene.airTexture);gl.uniform1i(U.uAir,14);
+      gl.uniform4fv(U.uAirRect,pastoralScene.airRect);
       const paint=pastoralScene.paint;
       gl.uniform1f(U.uIconCloudOpacity,P.showIconClouds);
       gl.uniform1i(U.uMeteorLight,11);

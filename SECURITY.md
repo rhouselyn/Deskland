@@ -1,5 +1,7 @@
 # Security Policy
 
+For this independent community repository, contact [rhouselyn](https://github.com/rhouselyn). The policy below belongs to the upstream [BLEZZ0102/Deskland](https://github.com/BLEZZ0102/Deskland) project.
+
 ## Reporting a Vulnerability
 
 If you discover a security or licensing vulnerability in Deskland, **please do not open a public GitHub issue**.
