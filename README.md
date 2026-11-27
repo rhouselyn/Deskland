@@ -4,11 +4,21 @@
 
 草原人家是随 Windows 桌面图标变化的动态壁纸。边牧带羊群出门，村民在院子里忙活，天黑后有人点起火炬。点一下草地能召来鸟群或流星，拖一个空框还能招来飞碟。独立桌宠会跟着你的键鼠动作，切换壁纸后也能继续陪你。
 
-[鼠标怎么玩](#鼠标怎么玩) · [草原人家](#草原人家) · [桌宠](#桌宠) · [下载与运行](#下载与运行) · [English](#english)
+[光色对比](#从黎明到深夜) · [鼠标怎么玩](#鼠标怎么玩) · [草原人家](#草原人家) · [演示视频](#演示视频) · [桌宠](#桌宠) · [下载与运行](#下载与运行) · [English](#english)
 
 ![草原人家和布偶猫桌宠。示例桌面图标沿左侧和右上角排列，云影落在草地上，羊群、农舍和居民分布在村中。](docs/images/pastoral-desktop-day.webp)
 
 *草原人家分享画面与布偶猫预览合图。示例图标和色块替代真实图标与文件名。*
+
+## 从黎明到深夜
+
+[![草原人家八个时段的光色对比。黎明青蓝，日出暖金，上午翠绿，正午清亮，午后泛金，夕阳珊瑚红，蓝调时刻偏蓝紫，深夜呈青蓝。](docs/images/pastoral-day-cycle.webp)](docs/images/pastoral-day-cycle.webp)
+
+**上排**　黎明 · 日出 · 翠绿上午 · 烈阳正午
+
+**下排**　午后 · 夕阳 · 蓝调时刻 · 深夜
+
+移动「固定时刻」滑杆可以重现不同光色。开启「跟随现实时间」后，晨昏随所选地点和日期变化。
 
 ## 鼠标怎么玩
 
@@ -51,17 +61,20 @@
 | **飞碟与怪圈** | 空白拖框可召来飞碟。正常运行时，首次自然来访机会要等约 6–14 小时。飞碟飞在建筑和云层上方。村民要走近才会发现怪圈，接着回家喊帮手、取工具，再逐段耙地播种。草只从实际处理过的地块长回来。 |
 | **流星及流星雨** | 入夜后自动出现，也可单击空白触发。有时单颗，有时成双，偶尔出现一场流星雨。白色、青绿、冰蓝、粉紫或琥珀色的光晕会扫过草地，短暂照亮沿途图标。 |
 
+### 演示视频
+
+- **夜间流星雨（24 秒）**。六颗流星先后掠过，光晕扫亮草地和示例桌面图标。 [播放 MP4](https://cdn.jsdelivr.net/gh/rhouselyn/Deskland@main/docs/videos/meteor-shower.mp4) · [GitHub 文件](docs/videos/meteor-shower.mp4)
+- **飞碟画麦圈与村民清扫（37 秒）**。从飞碟画圈、村民发现麦圈，到找人取工具、耙地播种和草地返青。清扫过程有快进。 [播放 MP4](https://cdn.jsdelivr.net/gh/rhouselyn/Deskland@main/docs/videos/crop-circle-cleanup.mp4) · [GitHub 文件](docs/videos/crop-circle-cleanup.mp4)
+
 ![空白拖框触发后，飞碟在草地上绘制怪圈](docs/images/pastoral-ufo.webp)
 
-### 从晨光到极光
+### 夜间灯光与设置
 
-默认以深圳的城市级参考地点、**17:29** 固定光照和透明任务栏开场。切换「跟随现实时间」后，太阳按所选地点的晨昏变化。也可以拖动时间滑杆，直接看清晨、正午、夕照或蓝紫夜色。固定时刻下，村民和动物仍会继续活动。
+默认以深圳的城市级参考地点、**17:29** 固定光照和透明任务栏开场。固定时刻下，村民和动物仍会继续活动。
 
 入夜后，窗户和火炬亮起，18 只萤火虫在草地闪烁，极光缓慢改变草地、屋顶和云层的色彩。图标云默认透明，云影仍会跟随图标。可以调节云层不透明度、极光与流星光晕的宽度和亮度，也可以单独开关图标受光。
 
 ![草原人家的夜间桌面。暖色窗户和火炬、极光和流星光晕出现在草地上，图标也随光照染色。](docs/images/pastoral-desktop-night.webp)
-
-[查看从黎明到夜晚的八组光色对比](docs/images/pastoral-day-cycle.webp)
 
 ## 桌宠
 
@@ -115,7 +128,13 @@ host\bin\Deskland.exe
 
 **Meadow Village is a living Windows wallpaper. The desktop pet is your companion while you type.** Your icons shape the scenery around them. Watch a collie herd sheep, villagers go about their day and torches light up after sunset. Use your mouse to call birds, meteors or a flying saucer. The separate pet can stay on top while you work or switch wallpapers.
 
-![Meadow Village at night with sample desktop icons, warm windows, torches and meteor light](docs/images/pastoral-desktop-night.webp)
+### From dawn to deep night
+
+[![Eight Meadow Village lighting palettes, from cool dawn and golden sunrise to coral sunset and blue moonlight](docs/images/pastoral-day-cycle.webp)](docs/images/pastoral-day-cycle.webp)
+
+**Top row** · Dawn, sunrise, emerald morning, bright noon
+
+**Bottom row** · Afternoon, sunset, blue hour, deep night
 
 ### Mouse controls
 
@@ -149,7 +168,10 @@ When space permits, the village has three households with six adults, four child
 
 The default uses a **17:29** fixed clock, a city-level Shenzhen reference location and a transparent taskbar. Switch to local solar time or drag the clock slider to explore eight daylight palettes. At night, windows and torches glow, eighteen fireflies appear and the aurora moves across the grass, roofs and clouds. Icon clouds start transparent while their shadows remain visible. Cloud opacity, icon lighting and the width and brightness of aurora and meteor glow are adjustable.
 
-[See the saucer drawing a crop circle](docs/images/pastoral-ufo.webp) · [Compare dawn through moonlight](docs/images/pastoral-day-cycle.webp)
+### Demo videos
+
+- **Nighttime meteor shower (24 seconds).** Six meteors light up the grass and sample desktop icons as they pass. [Play MP4](https://cdn.jsdelivr.net/gh/rhouselyn/Deskland@main/docs/videos/meteor-shower.mp4) · [GitHub file](docs/videos/meteor-shower.mp4)
+- **Saucer and crop circle cleanup (37 seconds).** From the saucer drawing the circle to villagers finding it, fetching tools, raking and reseeding. The cleanup is shown in time-lapse. [Play MP4](https://cdn.jsdelivr.net/gh/rhouselyn/Deskland@main/docs/videos/crop-circle-cleanup.mp4) · [GitHub file](docs/videos/crop-circle-cleanup.mp4)
 
 ### Desktop pet
 
